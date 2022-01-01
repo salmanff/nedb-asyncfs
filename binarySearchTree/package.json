@@ -1,0 +1,61 @@
+{
+  "_from": "binary-search-tree@0.2.6",
+  "_id": "binary-search-tree@0.2.6",
+  "_inBundle": false,
+  "_integrity": "sha1-xtKRlOKGgn/P/geQEOa/d97xDOM=",
+  "_location": "/binary-search-tree",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "version",
+    "registry": true,
+    "raw": "binary-search-tree@0.2.6",
+    "name": "binary-search-tree",
+    "escapedName": "binary-search-tree",
+    "rawSpec": "0.2.6",
+    "saveSpec": null,
+    "fetchSpec": "0.2.6"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/binary-search-tree/-/binary-search-tree-0.2.6.tgz",
+  "_shasum": "c6d29194e286827fcffe079010e6bf77def10ce3",
+  "_spec": "binary-search-tree@0.2.6",
+  "_where": "/Users/sff/Dropbox (Bedrock TOP)/ZCode/runs/00herokutest",
+  "author": {
+    "name": "Louis Chatriot",
+    "email": "louis.chatriot@gmail.com"
+  },
+  "bugs": {
+    "url": "https://github.com/louischatriot/node-binary-search-tree/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {
+    "underscore": "~1.13.2"
+  },
+  "deprecated": false,
+  "description": "Different binary search tree implementations, including a self-balancing one (AVL)",
+  "devDependencies": {
+    "chai": "^4.3.0",
+    "mocha": "9.1.x"
+  },
+  "homepage": "https://github.com/louischatriot/node-binary-search-tree",
+  "keywords": [
+    "AVL tree",
+    "binary search tree",
+    "self-balancing",
+    "AVL tree"
+  ],
+  "licence": "MIT",
+  "main": "index",
+  "name": "binary-search-tree",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/louischatriot/node-binary-search-tree.git"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "version": "0.2.6"
+}

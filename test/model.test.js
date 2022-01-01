@@ -9,6 +9,22 @@ var model = require('../lib/model')
   , fs = require('fs')
   ;
 
+  /**
+    @sf_added:
+      .env.js file contains the specific environment
+      all fs references have been moved to customFS
+      d.customFS added to all main functions to call custom fs
+        Note that d.customFS is used instead of self.db.customFS because a new Persistence object is not defined by the tests
+
+  **/
+  var env = null
+  env = require('../env/params')
+  try {
+    env = require('../env/params')
+  } catch(e) {
+    env = {dbFS:null, name:'defaultLocalFS'}
+  }
+
 
 describe('Model', function () {
 
@@ -139,10 +155,48 @@ describe('Model', function () {
         , badString = "world\r\nearth\nother\rline"
       ;
 
-      if (fs.existsSync('workspace/test1.db')) { fs.unlinkSync('workspace/test1.db'); }
-      fs.existsSync('workspace/test1.db').should.equal(false);
-      db1 = new Datastore({ filename: 'workspace/test1.db' });
+      /**
+        @sf_added: redone with waterfall
+      **/
+      const dbfs = env.dbFS
+      const test1File = 'workspace/test1.db'
+      async.waterfall([
+        function (cb) {
+          dbfs.deleteNedbTableFiles(test1File, cb)
+        },
+        function (cb) {
+          dbfs.isPresent(test1File, cb)
+        },
+        function (exists, cb) {
+          exists.should.equal(false)
+          db1 = new Datastore({ filename: test1File, autoload: true, timestampData: true, customFS: env.dbFS })
+          db1.loadDatabase(cb)
+        },
+        function (cb) {
+          db1.find({}, cb)
+        },
+        function (docs, cb) {
+          db1.insert({ hello: badString }, cb)
+        },
+        function (doc, cb) {
+          db2 = new Datastore({ filename: test1File, autoload: true, timestampData: true, customFS: env.dbFS })
+          db2.loadDatabase(cb)
+        },
+        function (cb) {
+          db2.find({}, cb)
+        },
+        function (docs, cb) {
+          docs.length.should.equal(1)
+          docs[0].hello.should.equal(badString)
+          cb(null)
+        }
+      ],
+      function (err) {
+        assert.isNull(err)
+        return done()
+      })
 
+      /* @sf_changed replace below with above
       db1.loadDatabase(function (err) {
         assert.isNull(err);
         db1.insert({ hello: badString }, function (err) {
@@ -152,15 +206,16 @@ describe('Model', function () {
           db2.loadDatabase(function (err) {
             assert.isNull(err);
             db2.find({}, function (err, docs) {
-              assert.isNull(err);
+            assert.isNull(err);
               docs.length.should.equal(1);
               docs[0].hello.should.equal(badString);
-
               done();
             });
           });
         });
       });
+      */
+
     });
 
     it('Can accept objects whose keys are numbers', function () {
@@ -1014,27 +1069,27 @@ describe('Model', function () {
         assert.isUndefined(model.getDotValue({ hello: 'world' }, 'helloo'));
         assert.isUndefined(model.getDotValue({ hello: 'world', type: { planet: true } }, 'type.plane'));
       });
-      
+
       it("Can navigate inside arrays with dot notation, and return the array of values in that case", function () {
         var dv;
-        
+
         // Simple array of subdocuments
         dv = model.getDotValue({ planets: [ { name: 'Earth', number: 3 }, { name: 'Mars', number: 2 }, { name: 'Pluton', number: 9 } ] }, 'planets.name');
         assert.deepEqual(dv, ['Earth', 'Mars', 'Pluton']);
-        
+
         // Nested array of subdocuments
         dv = model.getDotValue({ nedb: true, data: { planets: [ { name: 'Earth', number: 3 }, { name: 'Mars', number: 2 }, { name: 'Pluton', number: 9 } ] } }, 'data.planets.number');
         assert.deepEqual(dv, [3, 2, 9]);
-        
+
         // Nested array in a subdocument of an array (yay, inception!)
         // TODO: make sure MongoDB doesn't flatten the array (it wouldn't make sense)
         dv = model.getDotValue({ nedb: true, data: { planets: [ { name: 'Earth', numbers: [ 1, 3 ] }, { name: 'Mars', numbers: [ 7 ] }, { name: 'Pluton', numbers: [ 9, 5, 1 ] } ] } }, 'data.planets.numbers');
         assert.deepEqual(dv, [[ 1, 3 ], [ 7 ], [ 9, 5, 1 ]]);
       });
-      
+
       it("Can get a single value out of an array using its index", function () {
         var dv;
-        
+
         // Simple index in dot notation
         dv = model.getDotValue({ planets: [ { name: 'Earth', number: 3 }, { name: 'Mars', number: 2 }, { name: 'Pluton', number: 9 } ] }, 'planets.1');
         assert.deepEqual(dv, { name: 'Mars', number: 2 });
@@ -1046,7 +1101,7 @@ describe('Model', function () {
         // Index in nested array
         dv = model.getDotValue({ nedb: true, data: { planets: [ { name: 'Earth', number: 3 }, { name: 'Mars', number: 2 }, { name: 'Pluton', number: 9 } ] } }, 'data.planets.2');
         assert.deepEqual(dv, { name: 'Pluton', number: 9 });
-        
+
         // Dot notation with index in the middle
         dv = model.getDotValue({ nedb: true, data: { planets: [ { name: 'Earth', number: 3 }, { name: 'Mars', number: 2 }, { name: 'Pluton', number: 9 } ] } }, 'data.planets.0.name');
         dv.should.equal('Earth');
@@ -1082,7 +1137,7 @@ describe('Model', function () {
         model.match({ a: { b: 5 } }, { a: { b: { $lt: 10 } } }).should.equal(false);
         (function () { model.match({ a: { b: 5 } }, { a: { $or: [ { b: 10 }, { b: 5 } ] } }) }).should.throw();
       });
-      
+
       it("Can match for field equality inside an array with the dot notation", function () {
         model.match({ a: true, b: [ 'node', 'embedded', 'database' ] }, { 'b.1': 'node' }).should.equal(false);
         model.match({ a: true, b: [ 'node', 'embedded', 'database' ] }, { 'b.1': 'embedded' }).should.equal(true);
@@ -1387,7 +1442,7 @@ describe('Model', function () {
       it('Should throw an error if the $where function returns a non-boolean', function () {
         (function () { model.match({ a: 4 }, { $where: function () { return 'not a boolean'; } }); }).should.throw();
       });
-      
+
       it('Should be able to do the complex matching it must be used for', function () {
         var checkEmail = function() {
           if (!this.firstName || !this.lastName) { return false; }
@@ -1441,23 +1496,23 @@ describe('Model', function () {
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.age": { $lt: 4 } }).should.equal(true);
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.age": { $lt: 8 } }).should.equal(true);
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.age": { $lt: 13 } }).should.equal(true);
-        
+
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.name": 'Louis' }).should.equal(false);
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.name": 'Louie' }).should.equal(true);
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.name": 'Lewi' }).should.equal(false);
       });
-      
+
       it('Can query for a specific element inside arrays thanks to dot notation', function () {
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.0.name": 'Louie' }).should.equal(false);
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.1.name": 'Louie' }).should.equal(false);
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.2.name": 'Louie' }).should.equal(true);
         model.match({ childrens: [ { name: "Huey", age: 3 }, { name: "Dewey", age: 7 }, { name: "Louie", age: 12 } ] }, { "childrens.3.name": 'Louie' }).should.equal(false);
       });
-      
+
       it('A single array-specific operator and the query is treated as array specific', function () {
         (function () { model.match({ childrens: [ 'Riri', 'Fifi', 'Loulou' ] }, { "childrens": { "Fifi": true, $size: 3 } })}).should.throw();
       });
-      
+
       it('Can mix queries on array fields and non array filds with array specific operators', function () {
         model.match({ uncle: 'Donald', nephews: [ 'Riri', 'Fifi', 'Loulou' ] }, { nephews: { $size: 2 }, uncle: 'Donald' }).should.equal(false);
         model.match({ uncle: 'Donald', nephews: [ 'Riri', 'Fifi', 'Loulou' ] }, { nephews: { $size: 3 }, uncle: 'Donald' }).should.equal(true);
@@ -1467,7 +1522,7 @@ describe('Model', function () {
         model.match({ uncle: 'Donald', nephews: [ 'Riri', 'Fifi', 'Loulou' ] }, { nephews: { $size: 3 }, uncle: 'Donald' }).should.equal(true);
         model.match({ uncle: 'Donald', nephews: [ 'Riri', 'Fifi', 'Loulou' ] }, { nephews: { $size: 3 }, uncle: 'Daisy' }).should.equal(false);
       });
-      
+
     });
 
   });   // ==== End of 'Querying' ==== //

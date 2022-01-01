@@ -1,4 +1,41 @@
-<img src="http://i.imgur.com/9O1xHFb.png" style="width: 25%; height: 25%; float: left;">
+
+## A Modified version of nedb with async features
+
+This fork of the amazing <a href="https://github.com/louischatriot/nedb" target="_blank">NeDB</a> package by <a href="https://github.com/louischatriot" target="_blank">Louis Chatriot</a> allows you to store the  database files on async storage mediums like aws or dropbox. (It has also updated some of the dependencies.)
+
+**IMPORTANT NOTE** The changes made here are largely superficial to allow for async database-read and -write functionality. I don't claim to have a deep understanding of (or to be able to resolve issues) related to the core NeDB functionality.
+
+```
+npm install nedb --save    # Put latest version in your package.json
+npm test                   # You'll need the dev dependencies to launch tests - To test some of the underlying storage systems (eg aws, dropbox) you will need to enter your credentials for those systems under 'env' - If no credentials are entered, then NeDB is tested on your local drive.
+```
+
+Each storage medium needs to have a js file that emulates the 16 or so functions required to integrate that storage system into nedb-async. A number of examples (like dbfs_aws.js) are provided under the env folder. To initiate the db, you call the file as such:
+
+```
+const CustomFS = require('../path/to/dbfs_EXAMPLE.js')
+const db = new Datastore({ dbFileName, customFS: new CustomFS(fsParams)}, { doNotPersistOnLoad: true })
+```
+where dbFileName is the name of the db, and fsParams are the specific credentials that the storage system requires. For example, for aws, fsParams could equal something like this:
+```
+fsParams = {
+   accessKeyId:'11aws_access_key11',
+   secretAccessKey: '22_secret22'
+}
+```
+It is best to add the option: **{ doNotPersistOnLoad: true }** other wise loading is too slow. So you should call `yourDatabase.persistence.compactDatafile` manually.
+
+If you don't specify a customFS, then dbfs_local.js is used, and nedb-async acts like nedb.
+
+You can add new storage systems by emulating similar functionality for that storage medium. To run tests with new  systems, you can add the dbfs_example.js file under the env folder, add a file called '.example_credentials.js' with the required credentials and finally adjust the params.js file to detect and use those credentials.
+
+You should not use nedb-async for in-browser functionality.
+
+You can learn more about how nedb-async differs from nedb <a href="https://www.salmanff.com/ppage/2021-nedb" target="_blank">here</a>.
+
+The text below is from the original nedb instructions (with some parts deleted to reduce confusion and a couple of notes marked with 'sf'.) Please support NeDB as noted below.
+
+    - - - - - -  - - - - - - - - - - - - - - - - - -
 
 ## The JavaScript Database
 
@@ -15,16 +52,6 @@ No time to <a href="#pull-requests">help out</a>? You can support NeDB developme
 Money: [![Donate to author](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=louis%2echatriot%40gmail%2ecom&lc=US&currency_code=EUR&bn=PP%2dDonationsBF%3abtn_donate_LG%2egif%3aNonHostedGuest)
 
 Bitcoin address: 1dDZLnWpBbodPiN8sizzYrgaz5iahFyb1
-
-
-## Installation, tests
-Module name on npm and bower is `nedb`.
-
-```
-npm install nedb --save    # Put latest version in your package.json
-npm test                   # You'll need the dev dependencies to launch tests
-bower install nedb         # For the browser versions, which will be in browser-version/out
-```
 
 ## API
 It is a subset of MongoDB's API (the most used operations).
@@ -46,7 +73,7 @@ It is a subset of MongoDB's API (the most used operations).
 * <a href="#browser-version">Browser version</a>
 
 ### Creating/loading a database
-You can use NeDB as an in-memory only datastore or as a persistent datastore. One datastore is the equivalent of a MongoDB collection. The constructor is used as follows `new Datastore(options)` where `options` is an object with the following fields:
+You can use NeDB as a persistent datastore. One datastore is the equivalent of a MongoDB collection. The constructor is used as follows `new Datastore(options)` where `options` is an object with the following fields:
 
 * `filename` (optional): path to the file where the data is persisted. If left blank, the datastore is automatically considered in-memory only. It cannot end with a `~` which is used in the temporary files NeDB uses to perform crash-safe writes.
 * `inMemoryOnly` (optional, defaults to `false`): as the name implies.
@@ -61,7 +88,8 @@ You can use NeDB as an in-memory only datastore or as a persistent datastore. On
 default string comparison which is not well adapted to non-US characters
 in particular accented letters. Native `localCompare` will most of the
 time be the right choice
-* `nodeWebkitAppName` (optional, **DEPRECATED**): if you are using NeDB from whithin a Node Webkit app, specify its name (the same one you use in the `package.json`) in this field and the `filename` will be relative to the directory Node Webkit uses to store the rest of the application's data (local storage etc.). It works on Linux, OS X and Windows. Now that you can use `require('nw.gui').App.dataPath` in Node Webkit to get the path to the data directory for your application, you should not use this option anymore and it will be removed.
+sf:
+* `customFS` See above for nedb-async
 
 If you use a persistent datastore without the `autoload` option, you need to call `loadDatabase` manually.
 This function fetches the data from datafile and prepares the database. **Don't forget it!** If you use a
@@ -71,10 +99,7 @@ is called, so make sure to call it yourself or use the `autoload` option.
 Also, if `loadDatabase` fails, all commands registered to the executor afterwards will not be executed. They will be registered and executed, in sequence, only after a successful `loadDatabase`.
 
 ```javascript
-// Type 1: In-memory only datastore (no need to load the database)
-var Datastore = require('nedb')
-  , db = new Datastore();
-
+// Type 1: In-memory only datastore (no need to load the database) - Removed
 
 // Type 2: Persistent datastore with manual loading
 var Datastore = require('nedb')
@@ -83,12 +108,10 @@ db.loadDatabase(function (err) {    // Callback is optional
   // Now commands will be executed
 });
 
-
 // Type 3: Persistent datastore with automatic loading
 var Datastore = require('nedb')
   , db = new Datastore({ filename: 'path/to/datafile', autoload: true });
 // You can issue commands right away
-
 
 // Type 4: Persistent datastore for a Node Webkit app called 'nwtest'
 // For example on Linux, the datafile will be ~/.config/nwtest/nedb-data/something.db
@@ -124,7 +147,7 @@ Durability works similarly to major databases: compaction forces the OS to physi
 
 ### Inserting documents
 The native types are `String`, `Number`, `Boolean`, `Date` and `null`. You can also use
-arrays and subdocuments (objects). If a field is `undefined`, it will not be saved (this is different from 
+arrays and subdocuments (objects). If a field is `undefined`, it will not be saved (this is different from
 MongoDB which transforms `undefined` in `null`, something I find counter-intuitive).
 
 If the document does not contain an `_id` field, NeDB will automatically generated one for you (a 16-characters alphanumerical string). The `_id` of a document, once set, cannot be modified.
@@ -653,26 +676,7 @@ db.ensureIndex({ fieldName: 'expirationDate', expireAfterSeconds: 0 }, function 
 
 
 ## Browser version
-The browser version and its minified counterpart are in the `browser-version/out` directory. You only need to require `nedb.js` or `nedb.min.js` in your HTML file and the global object `Nedb` can be used right away, with the same API as the server version:
-
-```
-<script src="nedb.min.js"></script>
-<script>
-  var db = new Nedb();   // Create an in-memory only datastore
-  
-  db.insert({ planet: 'Earth' }, function (err) {
-   db.find({}, function (err, docs) {
-     // docs contains the two planets Earth and Mars
-   });
-  });
-</script>
-```
-
-If you specify a `filename`, the database will be persistent, and automatically select the best storage method available (IndexedDB, WebSQL or localStorage) depending on the browser. In most cases that means a lot of data can be stored, typically in hundreds of MB. **WARNING**: the storage system changed between v1.3 and v1.4 and is NOT back-compatible! Your application needs to resync client-side when you upgrade NeDB.
-
-NeDB is compatible with all major browsers: Chrome, Safari, Firefox, IE9+. Tests are in the `browser-version/test` directory (files `index.html` and `testPersistence.html`).
-
-If you fork and modify nedb, you can build the browser version from the sources, the build script is `browser-version/build.js`.
+sf: You should use the rgular nedb for the browser verions!
 
 
 ## Performance
@@ -722,6 +726,6 @@ If you report a bug, thank you! That said for the process to be manageable pleas
 You don't have time? You can support NeDB by sending bitcoins to this address: 1dDZLnWpBbodPiN8sizzYrgaz5iahFyb1
 
 
-## License 
+## License
 
 See [License](LICENSE)

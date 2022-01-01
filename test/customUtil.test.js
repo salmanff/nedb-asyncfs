@@ -1,7 +1,7 @@
 var should = require('chai').should()
   , assert = require('chai').assert
   , customUtils = require('../lib/customUtils')
-  , fs = require('fs')
+  // , fs = require('fs') // sf_added removed
   ;
 
 

@@ -286,7 +286,7 @@ path = normalizeArray(filter(path.split('/'), function(p) {
   if (path && trailingSlash) {
     path += '/';
   }
-  
+
   return (isAbsolute ? '/' : '') + path;
 };
 
@@ -1850,7 +1850,7 @@ Executor.prototype.processBuffer = function () {
 module.exports = Executor;
 
 },{"__browserify_process":4,"async":13}],9:[function(require,module,exports){
-var BinarySearchTree = require('binary-search-tree').AVLTree
+var BinarySearchTree = require('binarySearchTree').AVLTree
   , model = require('./model')
   , _ = require('underscore')
   , util = require('util')
@@ -5466,7 +5466,7 @@ var define, requireModule, require, requirejs;
   };
 })();
 
-define("promise/all", 
+define("promise/all",
   ["./utils","exports"],
   function(__dependency1__, __exports__) {
     "use strict";
@@ -5563,7 +5563,7 @@ define("promise/all",
 
     __exports__.all = all;
   });
-define("promise/asap", 
+define("promise/asap",
   ["exports"],
   function(__exports__) {
     "use strict";
@@ -5628,7 +5628,7 @@ define("promise/asap",
 
     __exports__.asap = asap;
   });
-define("promise/config", 
+define("promise/config",
   ["exports"],
   function(__exports__) {
     "use strict";
@@ -5647,7 +5647,7 @@ define("promise/config",
     __exports__.config = config;
     __exports__.configure = configure;
   });
-define("promise/polyfill", 
+define("promise/polyfill",
   ["./promise","./utils","exports"],
   function(__dependency1__, __dependency2__, __exports__) {
     "use strict";
@@ -5666,7 +5666,7 @@ define("promise/polyfill",
         local = self;
       }
 
-      var es6PromiseSupport = 
+      var es6PromiseSupport =
         "Promise" in local &&
         // Some of these methods are missing from
         // Firefox/Chrome experimental implementations
@@ -5689,7 +5689,7 @@ define("promise/polyfill",
 
     __exports__.polyfill = polyfill;
   });
-define("promise/promise", 
+define("promise/promise",
   ["./config","./utils","./all","./race","./resolve","./reject","./asap","exports"],
   function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __exports__) {
     "use strict";
@@ -5904,7 +5904,7 @@ define("promise/promise",
 
     __exports__.Promise = Promise;
   });
-define("promise/race", 
+define("promise/race",
   ["./utils","exports"],
   function(__dependency1__, __exports__) {
     "use strict";
@@ -5997,7 +5997,7 @@ define("promise/race",
 
     __exports__.race = race;
   });
-define("promise/reject", 
+define("promise/reject",
   ["exports"],
   function(__exports__) {
     "use strict";
@@ -6048,7 +6048,7 @@ define("promise/reject",
 
     __exports__.reject = reject;
   });
-define("promise/resolve", 
+define("promise/resolve",
   ["exports"],
   function(__exports__) {
     "use strict";
@@ -6067,7 +6067,7 @@ define("promise/resolve",
 
     __exports__.resolve = resolve;
   });
-define("promise/utils", 
+define("promise/utils",
   ["exports"],
   function(__exports__) {
     "use strict";

@@ -1,7 +1,7 @@
 var should = require('chai').should()
   , assert = require('chai').assert
   , testDb = 'workspace/test.db'
-  , fs = require('fs')
+  // , fs = require('fs') // sf_added removed
   , path = require('path')
   , _ = require('underscore')
   , async = require('async')
@@ -12,36 +12,76 @@ var should = require('chai').should()
   ;
 
 
+/**
+@sf_added:
+  .env.js file contains the specific environment
+  all fs references have been moved to customFS
+  d.customFS added to all main functions to call custom fs
+    Note that d.customFS is used instead of self.db.customFS because a new Persistence object is not defined by the tests
+
+**/
+var env = null
+//env = require('../env/params')
+env = require('../env/params')
+try {
+  env = require('../env/params')
+} catch(e) {
+  env = {dbFS:null, name:'defaultLocalFS'}
+  // onsole.log("no custom environment - Useing local fs")
+}
+console.log(" Using file system enviornment: "+env.name)
+const BEFORE_DELAY = (env.name == 'dropbox' || env.name == 'googleDrive')? 1000 :
+  ((env.name == 'aws')? 500: 0);
+  // dbx mostly works with 500, except for 1 case when writing 100 files
+const BEFORE_DELAY0 = (env.name == 'dropbox' || env.name == 'googleDrive') ? 500 : 0;
+
 describe('Cursor', function () {
   var d;
 
   beforeEach(function (done) {
-    d = new Datastore({ filename: testDb });
-    d.filename.should.equal(testDb);
-    d.inMemoryOnly.should.equal(false);
+      d = new Datastore({ filename: testDb , customFS: env.dbFS});
+      d.filename.should.equal(testDb);
+      d.inMemoryOnly.should.equal(false);
 
-    async.waterfall([
-      function (cb) {
-        Persistence.ensureDirectoryExists(path.dirname(testDb), function () {
-          fs.exists(testDb, function (exists) {
-            if (exists) {
-              fs.unlink(testDb, cb);
-            } else { return cb(); }
+      async.waterfall([
+        /** @sf_added to initialise db's like S3 **/
+        function (cb) {
+          if (d.customFS.initFS) {
+            d.customFS.initFS(cb)
+          } else {
+            cb(null)
+          }
+        }
+      , function (cb) {
+          Persistence.ensureDirectoryExists(path.dirname(testDb), d.customFS, function () {
+            d.customFS.isPresent(testDb, function (err, exists) {
+              if (err) {
+                cb(err)
+              } else if (exists) {
+                // @sf_added delete table function here instea of unlink which only erases th emain file
+                // removed d.customFS.unlink(testDb, cb);
+                d.customFS.deleteNedbTableFiles(testDb, function(err) {
+                  if (err) throw err
+                  setTimeout(function() {return cb();},BEFORE_DELAY)
+                  // @sf_added timeout - as 1 out of 26 tests failed in aws cause of too many writes slowing down process
+                });
+              } else {
+                return cb();
+              }
+            });
           });
-        });
-      }
-    , function (cb) {
-        d.loadDatabase(function (err) {
-          assert.isNull(err);
-          d.getAllData().length.should.equal(0);
-          return cb();
-        });
-      }
-    ], done);
+        }
+      , function (cb) {
+          d.loadDatabase(function (err) {
+            assert.isNull(err);
+            d.getAllData().length.should.equal(0);
+            return cb();
+          });
+        }
+      ], done);
   });
 
   describe('Without sorting', function () {
-
     beforeEach(function (done) {
       d.insert({ age: 5 }, function (err) {
         d.insert({ age: 57 }, function (err) {
@@ -55,6 +95,7 @@ describe('Cursor', function () {
         });
       });
     });
+
 
     it('Without query, an empty query or a simple query and no skip or limit', function (done) {
       async.waterfall([
@@ -148,7 +189,6 @@ describe('Cursor', function () {
 
   });   // ===== End of 'Without sorting' =====
 
-
   describe('Sorting of the results', function () {
 
     beforeEach(function (done) {
@@ -192,7 +232,7 @@ describe('Cursor', function () {
     });
 
     it("Sorting strings with custom string comparison function", function (done) {
-      var db = new Datastore({ inMemoryOnly: true, autoload: true
+      var db = new Datastore({ inMemoryOnly: true, autoload: true, customFS: env.dbFS
                              , compareStrings: function (a, b) { return a.length - b.length; }
                              });
 
@@ -342,9 +382,9 @@ describe('Cursor', function () {
         }
       ], done);
     });
-    
+
     it('Using too big a limit and a skip with sort', function (done) {
-      var i;    
+      var i;
       async.waterfall([
         function (cb) {
           var cursor = new Cursor(d);
@@ -361,7 +401,7 @@ describe('Cursor', function () {
     });
 
     it('Using too big a skip with sort should return no result', function (done) {
-      var i;    
+      var i;
       async.waterfall([
         function (cb) {
           var cursor = new Cursor(d);
@@ -397,7 +437,7 @@ describe('Cursor', function () {
         }
       ], done);
     });
-    
+
     it('Sorting strings', function (done) {
       async.waterfall([
         function (cb) {
@@ -409,7 +449,7 @@ describe('Cursor', function () {
                 d.insert({ name: 'sue' }, function () {
                   return cb();
                 });
-              });            
+              });
             });
           });
         }
@@ -435,10 +475,10 @@ describe('Cursor', function () {
         }
       ], done);
     });
-    
+
     it('Sorting nested fields with dates', function (done) {
       var doc1, doc2, doc3;
-      
+
       async.waterfall([
         function (cb) {
           d.remove({}, { multi: true }, function (err) {
@@ -452,7 +492,7 @@ describe('Cursor', function () {
                   doc3 = _doc3;
                   return cb();
                 });
-              });            
+              });
             });
           });
         }
@@ -478,8 +518,8 @@ describe('Cursor', function () {
         }
       ], done);
     });
-    
-    it('Sorting when some fields are undefined', function (done) {      
+
+    it('Sorting when some fields are undefined', function (done) {
       async.waterfall([
         function (cb) {
           d.remove({}, { multi: true }, function (err) {
@@ -492,7 +532,7 @@ describe('Cursor', function () {
                     return cb();
                   });
                 });
-              });            
+              });
             });
           });
         }
@@ -524,8 +564,8 @@ describe('Cursor', function () {
         }
       ], done);
     });
-    
-    it('Sorting when all fields are undefined', function (done) {      
+
+    it('Sorting when all fields are undefined', function (done) {
       async.waterfall([
         function (cb) {
           d.remove({}, { multi: true }, function (err) {
@@ -536,7 +576,7 @@ describe('Cursor', function () {
                 d.insert({ name: 'sue' }, function () {
                   return cb();
                 });
-              });            
+              });
             });
           });
         }
@@ -572,7 +612,7 @@ describe('Cursor', function () {
                     });
                   });
                 });
-              });            
+              });
             });
           });
         }
@@ -580,7 +620,7 @@ describe('Cursor', function () {
           var cursor = new Cursor(d, {});
           cursor.sort({ name: 1, age: -1 }).exec(function (err, docs) {
             docs.length.should.equal(5);
-            
+
             docs[0].nid.should.equal(2);
             docs[1].nid.should.equal(1);
             docs[2].nid.should.equal(5);
@@ -593,7 +633,7 @@ describe('Cursor', function () {
           var cursor = new Cursor(d, {});
           cursor.sort({ name: 1, age: 1 }).exec(function (err, docs) {
             docs.length.should.equal(5);
-            
+
             docs[0].nid.should.equal(2);
             docs[1].nid.should.equal(5);
             docs[2].nid.should.equal(1);
@@ -606,7 +646,7 @@ describe('Cursor', function () {
           var cursor = new Cursor(d, {});
           cursor.sort({ age: 1, name: 1 }).exec(function (err, docs) {
             docs.length.should.equal(5);
-            
+
             docs[0].nid.should.equal(3);
             docs[1].nid.should.equal(4);
             docs[2].nid.should.equal(5);
@@ -619,13 +659,13 @@ describe('Cursor', function () {
           var cursor = new Cursor(d, {});
           cursor.sort({ age: 1, name: -1 }).exec(function (err, docs) {
             docs.length.should.equal(5);
-            
+
             docs[0].nid.should.equal(3);
             docs[1].nid.should.equal(4);
             docs[2].nid.should.equal(5);
             docs[3].nid.should.equal(1);
             docs[4].nid.should.equal(2);
-            return cb();
+            setTimeout(function(){ return cb();},BEFORE_DELAY0)
           });
         }
       ], done);    });
@@ -635,12 +675,12 @@ describe('Cursor', function () {
         , companies = [ 'acme', 'milkman', 'zoinks' ]
         , entities = []
         ;
-    
+
       async.waterfall([
         function (cb) {
           d.remove({}, { multi: true }, function (err) {
             if (err) { return cb(err); }
-            
+
             id = 1;
             for (i = 0; i < companies.length; i++) {
               for (j = 5; j <= 100; j += 5) {
@@ -663,20 +703,22 @@ describe('Cursor', function () {
           });
         }
       , function (cb) {
-          var cursor = new Cursor(d, {});
-          cursor.sort({ company: 1, cost: 1 }).exec(function (err, docs) {
-            docs.length.should.equal(60);
+          setTimeout(function(){
+            var cursor = new Cursor(d, {});
+            cursor.sort({ company: 1, cost: 1 }).exec(function (err, docs) {
+              docs.length.should.equal(60);
 
-            for (var i = 0; i < docs.length; i++) {
-              docs[i].nid.should.equal(i+1);
-            };
-            return cb();
-          });
+              for (var i = 0; i < docs.length; i++) {
+                docs[i].nid.should.equal(i+1);
+              };
+              return cb();
+            });
+          },BEFORE_DELAY0)
         }
-      ], done);    });
+      ], done);
+    });
 
   });   // ===== End of 'Sorting' =====
-
 
   describe('Projections', function () {
     var doc1, doc2, doc3, doc4, doc0;
@@ -684,22 +726,24 @@ describe('Cursor', function () {
 
     beforeEach(function (done) {
       // We don't know the order in which docs wil be inserted but we ensure correctness by testing both sort orders
-      d.insert({ age: 5, name: 'Jo', planet: 'B', toys: { bebe: true, ballon: 'much' } }, function (err, _doc0) {
-        doc0 = _doc0;
-        d.insert({ age: 57, name: 'Louis', planet: 'R', toys: { ballon: 'yeah', bebe: false } }, function (err, _doc1) {
-          doc1 = _doc1;
-          d.insert({ age: 52, name: 'Grafitti', planet: 'C', toys: { bebe: 'kind of' } }, function (err, _doc2) {
-            doc2 = _doc2;
-            d.insert({ age: 23, name: 'LM', planet: 'S' }, function (err, _doc3) {
-              doc3 = _doc3;
-              d.insert({ age: 89, planet: 'Earth' }, function (err, _doc4) {
-                doc4 = _doc4;
-                return done();
+      setTimeout(function() {
+        d.insert({ age: 5, name: 'Jo', planet: 'B', toys: { bebe: true, ballon: 'much' } }, function (err, _doc0) {
+          doc0 = _doc0;
+          d.insert({ age: 57, name: 'Louis', planet: 'R', toys: { ballon: 'yeah', bebe: false } }, function (err, _doc1) {
+            doc1 = _doc1;
+            d.insert({ age: 52, name: 'Grafitti', planet: 'C', toys: { bebe: 'kind of' } }, function (err, _doc2) {
+              doc2 = _doc2;
+              d.insert({ age: 23, name: 'LM', planet: 'S' }, function (err, _doc3) {
+                doc3 = _doc3;
+                d.insert({ age: 89, planet: 'Earth' }, function (err, _doc4) {
+                  doc4 = _doc4;
+                  return done();
+                });
               });
             });
           });
         });
-      });
+      },BEFORE_DELAY0)
     });
 
     it('Takes all results if no projection or empty object given', function (done) {
@@ -852,11 +896,3 @@ describe('Cursor', function () {
   });   // ==== End of 'Projections' ====
 
 });
-
-
-
-
-
-
-
-

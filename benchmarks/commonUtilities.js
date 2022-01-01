@@ -52,10 +52,15 @@ module.exports.getConfiguration = function (benchDb) {
  */
 module.exports.prepareDb = function (filename, cb) {
   Persistence.ensureDirectoryExists(path.dirname(filename), function () {
-    fs.exists(filename, function (exists) {
-      if (exists) {
-        fs.unlink(filename, cb);
-      } else { return cb(); }
+    // sf removed exists and replace by stat
+    fs.stat(filename, function (err, stats) {
+      if (!err) {
+        fs.unlink(filename, cb)
+      } else if (err.code === 'ENOENT') {
+        return cb()
+      } else {
+        return cb(err)
+      }
     });
   });
 };
@@ -302,7 +307,3 @@ module.exports.loadDatabase = function (d, n, profiler, cb) {
   }
   runFrom(0);
 };
-
-
-
-
