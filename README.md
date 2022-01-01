@@ -10,7 +10,7 @@ npm install nedb --save    # Put latest version in your package.json
 npm test                   # You'll need the dev dependencies to launch tests - To test some of the underlying storage systems (eg aws, dropbox) you will need to enter your credentials for those systems under 'env' - If no credentials are entered, then NeDB is tested on your local drive.
 ```
 
-Each storage medium needs to have a js file that emulates the 16 or so functions required to integrate that storage system into nedb-async. A number of examples (like dbfs_aws.js) are provided under the env folder. To initiate the db, you call the file as such:
+Each storage medium needs to have a js file that emulates the 16 or so functions required to integrate that storage system into nedb-asyncfs. A number of examples (like dbfs_aws.js) are provided under the env folder. To initiate the db, you call the file as such:
 
 ```
 const CustomFS = require('../path/to/dbfs_EXAMPLE.js')
@@ -25,13 +25,13 @@ fsParams = {
 ```
 It is best to add the option: **{ doNotPersistOnLoad: true }** other wise loading is too slow. So you should call `yourDatabase.persistence.compactDatafile` manually.
 
-If you don't specify a customFS, then dbfs_local.js is used, and nedb-async acts like nedb.
+If you don't specify a customFS, then dbfs_local.js is used, and nedb-asyncfs acts like nedb.
 
 You can add new storage systems by emulating similar functionality for that storage medium. To run tests with new  systems, you can add the dbfs_example.js file under the env folder, add a file called '.example_credentials.js' with the required credentials and finally adjust the params.js file to detect and use those credentials.
 
-You should not use nedb-async for in-browser functionality.
+You should not use nedb-asyncfs for in-browser functionality.
 
-You can learn more about how nedb-async differs from nedb <a href="https://www.salmanff.com/ppage/2021-nedb" target="_blank">here</a>.
+You can learn more about how nedb-asyncfs differs from nedb <a href="https://www.salmanff.com/ppage/2021-nedb" target="_blank">here</a>.
 
 The text below is from the original nedb instructions (with some parts deleted to reduce confusion and a couple of notes marked with 'sf'.) Please support NeDB as noted below.
 
@@ -89,7 +89,7 @@ default string comparison which is not well adapted to non-US characters
 in particular accented letters. Native `localCompare` will most of the
 time be the right choice
 sf:
-* `customFS` See above for nedb-async
+* `customFS` See above for nedb-asyncfs
 
 If you use a persistent datastore without the `autoload` option, you need to call `loadDatabase` manually.
 This function fetches the data from datafile and prepares the database. **Don't forget it!** If you use a

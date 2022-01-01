@@ -1,9 +1,9 @@
 // fs_obj_aws.js 2020-06
 /*
-AWS S3 file system object used for freezr and nedb-async
+AWS S3 file system object used for freezr and nedb-asyncfs
 API docs: using https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html
 
-for nedb-async, each type of file system should have a file with the following functions
+for nedb-asyncfs, each type of file system should have a file with the following functions
 - Commands similar to 'fs'
   writeFile
   rename

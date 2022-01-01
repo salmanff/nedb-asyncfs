@@ -6,11 +6,11 @@
   An alternative would be to ask the authenticator service to review the access token regularly, but doing so would give the authenticator service knowledge of the user's usage and so it is not clear there is a security benefit.
 */
 /*
-Google Drive file system object used for freezr and nedb-async
+Google Drive file system object used for freezr and nedb-asyncfs
 API docs: using https://github.com/googleapis/google-api-nodejs-client
 and: https://developers.google.com/drive/api/v3
 
-for nedb-async, each type of file system should have a file with the following functions
+for nedb-asyncfs, each type of file system should have a file with the following functions
 - Commands similar to 'fs'
   writeFile
   rename

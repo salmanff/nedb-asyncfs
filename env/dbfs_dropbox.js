@@ -1,9 +1,9 @@
 // fs_obj_dropbox.js 2021-01
 /*
-Dropbox file system object used for freezr and nedb-async
+Dropbox file system object used for freezr and nedb-asyncfs
 API docs: using https://dropbox.github.io/dropbox-sdk-js/Dropbox.html
 
-for nedb-async, each type of file system should have a file with the following functions
+for nedb-asyncfs, each type of file system should have a file with the following functions
 - Commands similar to 'fs'
   writeFile
   rename

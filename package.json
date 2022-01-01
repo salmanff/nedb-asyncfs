@@ -1,5 +1,5 @@
 {
-  "name": "nedb-async",
+  "name": "nedb-asyncfs",
   "version": "2.0.0",
   "author": {
     "name": "Louis Chatriot then modified by salmanff",
@@ -14,7 +14,7 @@
     "datastore",
     "embedded"
   ],
-  "homepage": "https://github.com/salmanff/nedb-async",
+  "homepage": "https://github.com/salmanff/nedb-asyncfs",
   "dependencies": {
     "async": "3.2.2",
     "localforage": "^1.10.x",

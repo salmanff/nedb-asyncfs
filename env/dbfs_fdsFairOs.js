@@ -2,7 +2,7 @@
 
 /*
 
-for nedb-async, each type of file system should have a file with the following functions
+for nedb-asyncfs, each type of file system should have a file with the following functions
 - Commands similar to 'fs'
   writeFile
   rename
