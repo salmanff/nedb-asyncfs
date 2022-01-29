@@ -39,7 +39,7 @@ localFS.name = 'local'
 localFS.exists = function(filename, callback) {
   callback (fs.existsSync(filename)? true : false)
 }
-localFS.isPresent = function (filename, callback) {
+localFS.isPresent = function (filename, options, callback) {
   fs.stat(filename, function (err, stat) {
     if (err == null) {
       callback(null, true)

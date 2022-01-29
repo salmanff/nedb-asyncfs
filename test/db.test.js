@@ -29,13 +29,13 @@ var should = require('chai').should()
   console.log(" Using file system enviornment: "+env.name)
 
 /* sf_changed criteria for timing - due to long write time on async storage */
-var reloadTimeUpperBound = (env.name == 'defaultLocalFS')? 200: ((env.name === 'dropbox' || env.name === 'googleDrive')? 10000 : 2000); // 2000 for aws and 6000 for dbx -
+var reloadTimeUpperBound = (env.name == 'defaultLocalFS')? 200: ((env.name === 'dropbox' || env.name === 'googleDrive' || env.name === 'fdsFairOs') ? 10000 : 2000); // 2000 for aws and 6000 for dbx -
   // In ms, an upper bound for the reload time used to check createdAt and updatedAt
 const expiresafter = (env.name == 'defaultLocalFS')? .5 : (env.name == 'aws'? 1: 2)
 
 /* @sf_added utility fumction to make async */
 const deleteIfExists = function (d, file, cb){
-  d.customFS.isPresent(file, function (err, exists) {
+  d.customFS.isPresent(file, null, function (err, exists) {
     if (err) throw err
     if (exists) {
       d.customFS.deleteNedbTableFiles(file, cb);
@@ -54,7 +54,7 @@ describe('Database', function () {
     async.waterfall([
       function (cb) {
         Persistence.ensureDirectoryExists(path.dirname(testDb), d.customFS, function () {
-          d.customFS.isPresent(testDb, function (err, exists) {
+          d.customFS.isPresent(testDb, null, function (err, exists) {
             if (exists) {
               d.customFS.deleteNedbTableFiles(testDb, cb);
             } else { return cb(); }

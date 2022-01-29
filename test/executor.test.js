@@ -147,7 +147,7 @@ describe('Executor', function () {
           /** @sf_added customFS to functions **/
           Persistence.ensureDirectoryExists(path.dirname(testDb), d.customFS, function () {
             console.log('presistence here')
-            d.customFS.isPresent(testDb, function (err, exists) {
+            d.customFS.isPresent(testDb, null, function (err, exists) {
               if (err) throw err
               if (exists) {
                 d.customFS.unlink(testDb, cb);
@@ -210,7 +210,7 @@ describe('Executor', function () {
       //testThrowInCallback(d, done);
       return done()
     });
-    
+
     it('A falsy callback doesnt prevent execution of next operations', function(done) {
       testFalsyCallback(d, done);
     });

@@ -162,7 +162,7 @@ AWS_FS.prototype.stat = function (file, callback) {
     }
   });
 }
-AWS_FS.prototype.isPresent = function(file, callback){
+AWS_FS.prototype.isPresent = function(file, options, callback){
   // onsole.log(' - aws-exists ',file, ' in ',this.bucket)
 
   const objectParams = { Bucket: this.bucket, Key: file };

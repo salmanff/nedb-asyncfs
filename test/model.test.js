@@ -165,7 +165,7 @@ describe('Model', function () {
           dbfs.deleteNedbTableFiles(test1File, cb)
         },
         function (cb) {
-          dbfs.isPresent(test1File, cb)
+          dbfs.isPresent(test1File, null, cb)
         },
         function (exists, cb) {
           exists.should.equal(false)

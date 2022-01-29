@@ -194,7 +194,7 @@ DropboxFS.prototype.exists = function (file, callback) {
       }
     })
 }
-DropboxFS.prototype.isPresent = function (file, callback) {
+DropboxFS.prototype.isPresent = function (file, options, callback) {
   fdlog('dbfs_dropbox - isPresent ', file)
   const path = '/' + file
   const self = this
