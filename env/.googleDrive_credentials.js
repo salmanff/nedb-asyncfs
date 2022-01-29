@@ -1,5 +1,5 @@
 
-// Credentials for testting nedb-async with google Drive
+// Credentials for testting nedb-asyncfs with google Drive
 // exports.refresh_token, client_id and secret  need to be defined
 
 // exports.refreshToken = 'XXX'

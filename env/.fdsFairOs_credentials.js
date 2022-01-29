@@ -1,7 +1,8 @@
-// Credentials for testing nedb-async with fairos
+// Credentials for testing nedb-asyncfs with fairos
 
-// exports.userName = 'xx'
-// exports.fdsPass = 'xx'
-// exports.podname = 'nedb'
+
+// exports.userName = ''
+// exports.fdsPass = ''
+// exports.podname = 'nedbTester'
 // exports.tempLocalFolder = 'workspace/tempLocalFiles'
-// exports.fdsGateway = ''
+// exports.fdsGateway = 'fairos-mainnet.fairdatasociety.org'
