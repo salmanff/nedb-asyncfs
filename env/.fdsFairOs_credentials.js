@@ -5,4 +5,4 @@
 // exports.fdsPass = ''
 // exports.podname = 'nedbTester'
 // exports.tempLocalFolder = 'workspace/tempLocalFiles'
-// exports.fdsGateway = 'fairos-mainnet.fairdatasociety.org'
+// exports.fdsGateway = ''
