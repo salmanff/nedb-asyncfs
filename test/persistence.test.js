@@ -31,10 +31,10 @@ try {
 }
 console.log(" Using file system enviornment: "+env.name)
 
-const BEFORE_DELAY = (env.name == 'dropbox' || env.name == 'googleDrive')? 1000 :
+const BEFORE_DELAY = (env.name == 'dropbox' || env.name == 'googleDrive'  || env.name == 'fdsFairOs')? 1000 :
   ((env.name == 'aws')? 500: 20);
   // dbx mostly works with 500, except for 1 case when writing 100 files
-const BEFORE_DELAY0 = (env.name == 'dropbox' || env.name == 'googleDrive')? 1000 : 0;
+const BEFORE_DELAY0 = (env.name == 'dropbox' || env.name == 'googleDrive'  || env.name == 'fdsFairOs')? 1000 : 0;
 
 /* @sf_added utility fumction to make async */
 const deleteIfExists = function (d, file, cb){
@@ -75,6 +75,7 @@ describe('Persistence', function () {
     done()
   });
   });
+
 
   it('Every line represents a document', function () {
     var now = new Date()
@@ -660,7 +661,6 @@ describe('Persistence', function () {
   });   // ==== End of 'Serialization hooks' ==== //
 
   describe('Prevent dataloss when persisting data', function () {
-
 
     it('Creating a datastore with in memory as true and a bad filename wont cause an error', function () {
       new Datastore({ filename: 'workspace/bad.db~', inMemoryOnly: true, customFS: env.dbFS });

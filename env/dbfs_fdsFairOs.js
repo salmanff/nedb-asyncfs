@@ -109,7 +109,6 @@ fdsFairOs.prototype.unlink = function (path, try2, callback) {
               }
             })
           } else {
-            fdlog('file deleted' + path)
             const localFilePath = self.credentials.tempLocalFolder + '/' + path
             if (fs.existsSync(localFilePath)) fs.unlinkSync(localFilePath)
             callback(null)
@@ -160,7 +159,6 @@ fdsFairOs.prototype.writeFile = function (path, contents, options, callback) {
     },
     function (returns, cb) {
       if (returns.present && options.doNotOverWrite) {
-        felog('in fds write - File exists and doNotOverWrite is set  ', { returns })
         cb(new Error('File exists and doNotOverWrite is set'))
       } else if (returns.present) {
         // delete the file
@@ -194,23 +192,38 @@ fdsFairOs.prototype.writeFile = function (path, contents, options, callback) {
 
       const writeReq = https.request(writeOptions)
       writeReq.on('response', function (writeResp) {
-        writeResp.on('data', (writeReturns) => {
+        var writeReturns = ''
+        writeResp.on('data', (partFile) => {
+          writeReturns += partFile.toString()
+        })
+        writeResp.on('end', (writeEnd) => {
           if (!writeReturns) {
             felog('error in uploading file ', { writeReturns })
             cb(new Error('fds write: Nothing returned'))
           } else {
-            writeReturns = writeReturns.toString()
-            writeReturns = JSON.parse(writeReturns)
+            try {
+              writeReturns = JSON.parse(writeReturns)
+            } catch (e) {
+              writeReturns = { code: 500, originalText: writeReturns, Responses: [{ message: 'Could not parse return message' }] }
+            }
+
             if (writeReturns.Responses && writeReturns.Responses.length > 0 && writeReturns.Responses[0].message && writeReturns.Responses[0].message.indexOf('uploaded successfully') >= 0) {
               cb(null)
+            } else if (writeReturns.Responses && writeReturns.Responses.length > 0 && writeReturns.Responses[0].message && writeReturns.Responses[0].message.indexOf('payload is greater than 4096') >= 0) {
+              self.readFile(path, options, function (err, filecont) {
+                if (filecont === contents) {
+                  callback(null)
+                } else {
+                  callback(new Error('payload 4096 error unsolved'))
+                }
+              })
             } else {
-              felog('fds write message changed n write ', path, writeReturns)
+              felog('fds write error for ', path, { writeReturns })
               const message = (writeReturns.Responses && writeReturns.Responses.length > 0 && writeReturns.Responses[0].message) ? writeReturns.Responses[0].message : JSON.stringify('unknown message ' + writeReturns.Responses)
               cb(new Error(message))
             }
           }
         })
-        // writeResp.on('end', (writeEnd) => { console.log('end of writeResp', { writeEnd }) })
       })
       writeReq.on('error', (error) => {
         felog('error in uploading file ', error)
@@ -263,22 +276,18 @@ fdsFairOs.prototype.readFile = function (path, options, callback) {
   const self = this
   if (!options) options = {}
   self.getFileToSend(path, function (err, returns) {
-    fdlog('got readfile returns ', { err, returns })
     if (err) {
       if (err.message === 'fds - pod not open' && !options.try2) {
-        fdlog('fds - pod not open  - to retry')
         reOpenPod(self, function (err) {
           if (err) {
             felog('reopening pod failed ', { err, options })
             callback(err)
           } else {
-            fdlog('reopening pod try 2 ')
             options.try2 = true
             self.readFile(path, options, callback)
           }
         })
       } else if (isExpiryError(err) && !options.try2) {
-        fdlog('readFile - re-authing with new cookie')
         self.getAuth({ ignoreCookie: true }, function (err, ret) {
           if (err) {
             callback(err)
@@ -314,11 +323,9 @@ fdsFairOs.prototype.readdir = function (dirpath, options, callback) {
       https.get('https://' + self.credentials.fdsGateway + '/v1/dir/ls?pod_name=' + self.credentials.podname + '&dir_path=/' + dirpath, cookieOpts, (res) => {
         var fullfile = ''
         res.on('data', (getFileReturns) => {
-          fdlog('readdir got data for ' + dirpath)
           fullfile += getFileReturns.toString()
         })
         res.on('end', (ret) => {
-          fdlog('readdir got final end for ' + dirpath)
           let returns = fullfile
           var files = []
 
@@ -336,8 +343,8 @@ fdsFairOs.prototype.readdir = function (dirpath, options, callback) {
             returns.files.forEach(item => { files.push(item.name) })
           }
 
-          if (returns.code === 404) {
-            callback(new Error(FILE_DOES_NOT_EXIT))
+          if (returns.code === 404 || (returns.message && returns.message.indexOf('file not present') > 0)) {
+            callback(null, [])
           } else if (!options.try2 && isExpiryError(returns)) {
             felog('readdir - re-authing with new cookie')
             self.getAuth({ ignoreCookie: true }, function (err, ret) {
@@ -351,11 +358,10 @@ fdsFairOs.prototype.readdir = function (dirpath, options, callback) {
           } else if (returns.error) {
             callback(new Error(returns.error))
           } else {
-            fdlog('want to return files from readdir ', files)
             callback(null, files)
           }
         }).on('error', (e) => {
-          console.error('fds readdir error', e)
+          felog('fds readdir error', e)
           callback(e)
         })
       })
@@ -374,7 +380,6 @@ fdsFairOs.prototype.stat = function (path, callback) {
         res.on('data', (returns) => {
           if (returns) returns = returns.toString()
           returns = JSON.parse(returns)
-          fdlog('stat ', { returns })
           if (returns.code === 400) {
             callback(new Error(returns.message))
           } else if (returns.code === 500) {
@@ -385,7 +390,6 @@ fdsFairOs.prototype.stat = function (path, callback) {
                 res.on('data', (returns) => {
                   if (returns) returns = returns.toString()
                   returns = JSON.parse(returns)
-                  fdlog('stat for folder', { returns })
                   if (returns.code === 400) {
                     callback(new Error(returns.message))
                   } else if (returns.code === 500) {
@@ -448,12 +452,10 @@ fdsFairOs.prototype.getFileToSend = function (path, callback) {
       var fullfile = ''
       const getFileReq = https.request(getFileOptions, (getFileResp) => {
         getFileResp.on('end', function () {
-          fdlog('ended here fullfile', fullfile)
           let errInFile = false
           let testJson = null
           try {
             testJson = JSON.parse(fullfile)
-            fdlog({ testJson })
             if (testJson.code === 400 || testJson.code === 500 || testJson.message.indexOf('pod not open') > -1 || testJson.message.indexOf('error uploading data') > -1 || isExpiryError(testJson)) errInFile = true
           } catch (e) {
             // do nothing
@@ -512,7 +514,6 @@ fdsFairOs.prototype.removeFolder = function (dirpath, callback) {
         }
       })
     } else {
-      fdlog(' - fds -going to empty folder ', (callback instanceof Function))
       self.removeEmptyFolder(dirpath, callback)
     }
   })
@@ -557,7 +558,6 @@ fdsFairOs.prototype.removeEmptyFolder = function (dirpath, callback) {
               }
             })
           } else {
-            fdlog('folder deleted' + dirpath)
             const localFilePath = self.credentials.tempLocalFolder + '/' + dirpath
             if (fs.existsSync(localFilePath)) fs.rmdirSync(localFilePath, { recursive: true, force: true })
             callback(null)
@@ -653,7 +653,6 @@ fdsFairOs.prototype.readNedbTableFile = function (path, options, callback) {
               for (var i = 0; i < toSortEntries.length; i++) {
                 contents += toSortEntries[i].data
               }
-              fdlog('e1 DB populated with:' + contents + '.END')
               callback(null, contents)
             }
           })
@@ -661,7 +660,6 @@ fdsFairOs.prototype.readNedbTableFile = function (path, options, callback) {
           callback(err)
         } else {
           if (contents && contents.length > 1 && contents.slice(contents.length - 2) === '\n\n') contents = contents.slice(0, contents.length - 1)
-          fdlog('e2 DB populated with:' + contents + '.END')
           callback(err, contents)
         }
       })
@@ -759,9 +757,8 @@ fdsFairOs.prototype.crashSafeWriteNedbFile = function (filename, data, callback)
       })
     },
     function (cb) {
-      console.log('Timeout okay!!')
       self.rename(tempOf(filename), filename, function (err) {
-        if (err) console.log('fds crashSafeWriteNedbFile write rename ', { filename, err })
+        if (err) felog('fds crashSafeWriteNedbFile write rename ', { filename, err })
         return cb(err)
       })
     },
@@ -790,7 +787,7 @@ fdsFairOs.prototype.crashSafeWriteNedbFile = function (filename, data, callback)
   ],
   function (err) {
     if (err) felog('end of crashSafeWriteNedbFile write', { err, data })
-    if (!err) fdlog('end of crashSafeWriteNedbFile write with NO ERR!!!', { err, data })
+    // if (!err) fdlog('end of crashSafeWriteNedbFile write with NO ERR!!!', { err, data })
     return callback(err)
   })
 }
@@ -844,7 +841,6 @@ fdsFairOs.prototype.getOrMakeFolders = function (path, options, callback) {
       felog('error checking auth for getOrMakeFolders')
       callback(err)
     } else if (self.existingPaths.includes(path)) {
-      fdlog('[exists in cache - move ahead for ]', path)
       callback(null)
     } else {
       var pathParts = path.split('/')
@@ -859,7 +855,6 @@ fdsFairOs.prototype.getOrMakeFolders = function (path, options, callback) {
           currentFolderName += ('/' + pathParts.shift())
           // try creating if exists then ok
           self.folderExists(currentFolderName, function (err, returns) {
-            fdlog('fds getOrMakeFolders ', { returns })
             if (err) {
               cb(err)
             } else if (returns.present) {
@@ -884,14 +879,12 @@ fdsFairOs.prototype.getOrMakeFolders = function (path, options, callback) {
               const dirMakeReq = https.request(makeOptions, (makeDirResp) => {
                 makeDirResp.on('data', (makeDirReturns) => {
                   if (makeDirReturns) makeDirReturns = makeDirReturns.toString()
-                  fdlog('returns from makeDir ', makeDirReturns)
                   makeDirReturns = JSON.parse(makeDirReturns)
 
                   if (!makeDirReturns || makeDirReturns.code !== 201) {
                     felog('error in make dir ', { makeDirReturns })
                     cb(new Error('fds mkdir: ' + makeDirReturns.message))
                   } else {
-                    fdlog('dir created ' + currentFolderName)
                     self.existingPaths.push(path)
                     cb(null)
                   }
@@ -922,7 +915,6 @@ fdsFairOs.prototype.exists = function (fileOrFolder, callback) {
   fdlog('exists ', fileOrFolder)
   const self = this
   self.fileExists(fileOrFolder, function (err, returns) {
-    fdlog('file exists ? ', { returns })
     if (err || !returns.present) {
       self.folderExists(fileOrFolder, function (err, returns) {
         if (err || !returns.present) {
@@ -941,7 +933,6 @@ fdsFairOs.prototype.isPresent = function (fileOrFolder, options, callback) {
   fdlog('isPresent ', fileOrFolder)
   const self = this
   self.fileExists(fileOrFolder, function (err, returns) {
-    fdlog('file exists ? ', { returns })
     if (err || !returns.present) {
       self.folderExists(fileOrFolder, function (err, returns) {
         if (err || !returns) {
@@ -966,7 +957,6 @@ fdsFairOs.prototype.folderExists = function (path, try2, callback) {
       felog('error checking auth for folderExists', err)
       callback(err)
     } else if (self.existingPaths.includes(path)) {
-      fdlog('folderexists using cache - exists ')
       callback(null, { present: true })
     } else {
       const cookieOpts = { headers: { Cookie: self.cookie.text } }
@@ -976,7 +966,6 @@ fdsFairOs.prototype.folderExists = function (path, try2, callback) {
             returns = returns.toString()
             returns = JSON.parse(returns)
           }
-          fdlog('folderExists ' + path, { returns })
           if (returns && (returns.present === true || returns.present === false)) {
             if (returns.present === true) self.existingPaths.push(path)
             callback(null, returns)
@@ -1023,7 +1012,6 @@ fdsFairOs.prototype.fileExists = function (path, try2, callback) {
             returns = returns.toString()
             returns = JSON.parse(returns)
           }
-          fdlog('fileExists ', { returns })
           if (isExpiryError(returns) && !try2) {
             felog('fileExists - re-authing with new cookie')
             self.getAuth({ ignoreCookie: true }, function (err, ret) {
@@ -1062,7 +1050,12 @@ fdsFairOs.prototype.getAuth = function (options = {}, callback) {
   // CHECKS COOKIE - IF exiats and not expired, stays
   // If not, tries to login and store new cookie
   // then tries to pen pod - or if pod doesnt exist, it
-  fdlog('fdsFairOs  - getAuth ', this.credentials)
+  const sanitiseForfdlog = function (creds) {
+    var ret = JSON.parse(JSON.stringify(creds))
+    delete ret.fdsPass
+    return ret
+  }
+  fdlog('fdsFairOs  - getAuth ', sanitiseForfdlog(this.credentials))
   if (!options) options = {}
 
   if (!this.credentials || !this.credentials.userName || !this.credentials.fdsPass ||
@@ -1150,7 +1143,11 @@ const reOpenPod = function (fdsThis, callback) {
     podResp.on('data', (podReturns) => {
       if (podReturns) podReturns = podReturns.toString()
       fdlog('returns from pod 1 ', podReturns)
-      podReturns = JSON.parse(podReturns)
+      try {
+        podReturns = JSON.parse(podReturns)
+      } catch (e) {
+        podReturns = { code: 500, originalText: podReturns, message: 'Could not parse return message'}
+      }
 
       if (podReturns && podReturns.code >= 400 && podReturns.code < 500) { // pod does not exist
         if (podReturns.message !== 'pod open: invalid pod name' && podReturns.message !== 'pod open: pod does not exist') {
@@ -1169,7 +1166,11 @@ const reOpenPod = function (fdsThis, callback) {
         const podCreateReq = https.request(podCreateOptions, (podCreateResp) => {
           podCreateResp.on('data', (podCreateReturns) => {
             if (podCreateReturns) podCreateReturns = podCreateReturns.toString()
-            podCreateReturns = JSON.parse(podCreateReturns)
+            try {
+              podCreateReturns = JSON.parse(podCreateReturns)
+            } catch (e) {
+              podCreateReturns = { code: 500, originalText: podCreateReturns, message: 'Could not parse return message' }
+            }
             if (!podCreateReturns || podCreateReturns.code !== 201) {
               felog('error in podCreateReturns ', { podCreateReturns })
               callback(new Error('fds pod create - ' + podCreateReturns.message))
