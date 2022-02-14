@@ -998,7 +998,7 @@ fdsFairOs.prototype.folderExists = function (path, try2, callback) {
 }
 fdsFairOs.prototype.fileExists = function (path, try2, callback) {
   // assumed path does NOT start with '/'
-  const cookieOpts = { headers: { Cookie: this.cookie.text } }
+  const cookieOpts = { headers: { Cookie: (this.cookie ? this.cookie.text : 'null - missing cookie') } }
   const self = this
   if (!callback) { callback = try2; try2 = false }
   this.getAuth(null, function (err) {
