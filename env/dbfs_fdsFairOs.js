@@ -29,8 +29,9 @@ const https = require('https')
 const fs = require('fs')
 
 function fdsFairOs (credentials = {}, options = {}) {
-  fdlog('fdsFairOs  - new fds credentials to set ', { credentials })
+  fdlog('fdsFairOs  - new fds credentials to set ', { credentials, options })
   this.credentials = credentials
+  this.extraCreds = options.extraCreds || null
   this.existingPaths = []
   this.doNotPersistOnLoad = (options.doNotPersistOnLoad !== false)
 }
@@ -94,7 +95,7 @@ fdsFairOs.prototype.unlink = function (path, try2, callback) {
             self.fileExists(path, (err2, res) => {
               if (res && (res.present || res.present === false)) {
                 callback(null)
-              } else if (!try2 && isExpiryError(res)) {
+              } else if (!try2 && isExpiryError(res, self.cookie)) {
                 felog('unlink - re-authing with new cookie')
                 self.getAuth({ ignoreCookie: true }, function (err) {
                   if (err) {
@@ -117,7 +118,7 @@ fdsFairOs.prototype.unlink = function (path, try2, callback) {
       })
       unlinkReq.on('error', (error) => {
         felog('error in deleting file ', error)
-        if (!try2 && isExpiryError(error)) {
+        if (!try2 && isExpiryError(error, self.cookie)) {
           felog('unlink - re-authing with new cookie (onerr) ')
           self.getAuth({ ignoreCookie: true }, function (err) {
             if (err) {
@@ -219,7 +220,7 @@ fdsFairOs.prototype.writeFile = function (path, contents, options, callback) {
                 }
               })
             } else {
-              felog('fds write error for ', path, { writeReturns })
+              felog('fds write error for ', { path }, ' writeReturns: ' + JSON.stringify(writeReturns))
               const message = (writeReturns.Responses && writeReturns.Responses.length > 0 && writeReturns.Responses[0].message) ? writeReturns.Responses[0].message : JSON.stringify('unknown message ' + writeReturns.Responses)
               cb(new Error(message))
             }
@@ -288,7 +289,7 @@ fdsFairOs.prototype.readFile = function (path, options, callback) {
             self.readFile(path, options, callback)
           }
         })
-      } else if (isExpiryError(err) && !options.try2) {
+      } else if (isExpiryError(err, self.cookie) && !options.try2) {
         self.getAuth({ ignoreCookie: true }, function (err, ret) {
           if (err) {
             callback(err)
@@ -346,7 +347,7 @@ fdsFairOs.prototype.readdir = function (dirpath, options, callback) {
 
           if (returns.code === 404 || (returns.message && returns.message.indexOf('file not present') > 0)) {
             callback(null, [])
-          } else if (!options.try2 && isExpiryError(returns)) {
+          } else if (!options.try2 && isExpiryError(returns, self.cookie)) {
             felog('readdir - re-authing with new cookie')
             self.getAuth({ ignoreCookie: true }, function (err, ret) {
               if (err) {
@@ -469,13 +470,13 @@ fdsFairOs.prototype.getFileToSend = function (path, callback) {
           let testJson = null
           try {
             testJson = JSON.parse(fullfile)
-            if (testJson.code === 400 || testJson.code === 500 || testJson.message.indexOf('pod not open') > -1 || testJson.message.indexOf('error uploading data') > -1 || isExpiryError(testJson)) errInFile = true
+            if (testJson.code === 400 || testJson.code === 500 || testJson.message.indexOf('pod not open') > -1 || testJson.message.indexOf('error uploading data') > -1 || isExpiryError(testJson, self.cookie)) errInFile = true
           } catch (e) {
             // okay to get error cause the file could be anything...
           }
           if (errInFile) {
             // console.log() - note unresolvable bug where a file cannot be read if it is a json with message: pod not opn
-            const message = testJson ? (testJson.message.indexOf('pod not open') > -1 ? 'fds - pod not open' : (isExpiryError(testJson) ? '' : (testJson.message || 'fds - unknown error 1'))) : 'unknown error 2'
+            const message = testJson ? (testJson.message.indexOf('pod not open') > -1 ? 'fds - pod not open' : (isExpiryError(testJson, self.cookie) ? '' : (testJson.message || 'fds - unknown error 1'))) : 'unknown error 2'
             callback(new Error(message))
           } else {
             callback(null, fullfile)
@@ -999,7 +1000,7 @@ fdsFairOs.prototype.folderExists = function (path, try2, callback) {
           if (returns && (returns.present === true || returns.present === false)) {
             if (returns.present === true) self.existingPaths.push(path)
             callback(null, returns)
-          } else if (!try2 && isExpiryError(returns)) {
+          } else if (!try2 && isExpiryError(returns, self.cookie)) {
             felog('folderExists - re-authing with new cookie')
             self.getAuth({ ignoreCookie: true }, function (err, ret) {
               if (err) {
@@ -1029,6 +1030,7 @@ fdsFairOs.prototype.folderExists = function (path, try2, callback) {
 fdsFairOs.prototype.fileExists = function (path, try2, callback) {
   // assumed path does NOT start with '/'
   const cookieOpts = { headers: { Cookie: (this.cookie ? this.cookie.text : 'null - missing cookie') } }
+  fdlog('dfs fileExists cookie : ', cookieOpts.headers.Cookie)
   const self = this
   if (!callback) { callback = try2; try2 = false }
   this.getAuth(null, function (err) {
@@ -1045,10 +1047,10 @@ fdsFairOs.prototype.fileExists = function (path, try2, callback) {
             console.warn('fds file stat: unparse-able response in return message ' + JSON.stringify(returns), e)
             returns = { error: 'fds file stat: unparse-able response in return message' }
           }
-          if (isExpiryError(returns) && !try2) {
-            felog('fileExists - re-authing with new cookie')
+          if (isExpiryError(returns, self.cookie) && !try2) {
+            fdlog('fileExists - re-authing with new cookie')
             self.getAuth({ ignoreCookie: true }, function (err, ret) {
-              felog('fileExists - re-authing with new cookie')
+              fdlog('fileExists - re-authing with new cookie')
               if (err) {
                 callback(err)
               } else {
@@ -1090,6 +1092,13 @@ fdsFairOs.prototype.getAuth = function (options = {}, callback) {
   }
   fdlog('fdsFairOs  - getAuth ', sanitiseForfdlog(this.credentials))
   if (!options) options = {}
+
+  if (this.extraCreds && !this.cookie) { // note only happens on first run of auth
+    this.cookie = JSON.parse(JSON.stringify(this.extraCreds))
+    this.extraCreds = null
+  } else if (this.extraCreds && this.cookie) {
+    felog('dbfs_fds No extra creds in this.credentials - SNBH ???')
+  }
 
   if (!this.credentials || !this.credentials.userName || !this.credentials.fdsPass ||
     !this.credentials.podname || !this.credentials.tempLocalFolder || !this.credentials.fdsGateway) {
@@ -1226,7 +1235,7 @@ const reOpenPod = function (fdsThis, callback) {
         podCreateReq.end()
       } else if (!podReturns || podReturns.code !== 200) {
         felog('error in returns ', { podReturns })
-        callback(new Error('fds pod open: ' + podReturns.message))
+        callback(new Error('fds pod open error : ' + podReturns.message))
       } else {
         fdlog('existing pod used', { fdsThis })
         callback(null)
@@ -1273,12 +1282,15 @@ const tempOf = function (filename) {
   return filename + '~'
 }
 
-const isExpiryError = function (message) {
+const isExpiryError = function (message, cookieObj) {
+  // cookieObj used for error checking only
   if (message && message.error) message = message.error // for returned err object
   if (message && message.message) message = message.message // for error objects
   if (!message || typeof message !== 'string') return false
   if (message === 'auth expiration') return true
   if (message.indexOf('user not logged in') > -1) return true
+  if (message.indexOf('invalid cookie') > -1) felog('To review - why are we receiving an invalid cookie err ', { message, cookieObj })
+  if (message.indexOf('invalid cookie') > -1) return true
   if (message.indexOf('cookie login timeout expired') > -1) return true
   return false
 }
