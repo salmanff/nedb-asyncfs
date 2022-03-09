@@ -389,7 +389,7 @@ fdsFairOs.prototype.stat = function (path, callback) {
             returns = { error: 'fds file stat: unparse-able response from file stats 2' }
           }
           if (!returns) {
-            callback('file stat - no returns for ' + path)
+            callback(new Error('file stat - no returns for ' + path))
           } else if (returns.code === 400) {
             callback(new Error((returns.message ? returns.message : 'unknown err') + ' for ' + path))
           } else if (returns.error) {
@@ -439,7 +439,7 @@ fdsFairOs.prototype.stat = function (path, callback) {
           }
         }).on('error', (e) => {
           console.error(e)
-          callback((e.message ? e.message : 'unknown err') + ' for ' + path)
+          callback(new Error((e.message ? e.message : 'unknown err') + ' for ' + path))
         })
       })
     }
@@ -480,7 +480,7 @@ fdsFairOs.prototype.getFileToSend = function (path, callback) {
           if (errInFile) {
             // console.log() - note unresolvable bug where a file cannot be read if it is a json with message: pod not opn
             const message = (testJson && testJson.message) ? (testJson.message.indexOf('pod not open') > -1 ? 'fds - pod not open' : (isExpiryError(testJson, self.cookie) ? '' : ('fds - unknown error 1'))) : 'unknown error 2'
-            callback(new Error('getFileToSend err: ' + message + + ' for ' + path))
+            callback(new Error('getFileToSend err: ' + message + ' for ' + path))
           } else {
             callback(null, fullfile)
           }
@@ -907,7 +907,6 @@ fdsFairOs.prototype.getOrMakeFolders = function (path, options, callback) {
                     makeDirReturns = makeDirReturns.toString()
                     makeDirReturns = JSON.parse(makeDirReturns)
                   } catch (e) {
-                    xc
                     felog('fds mkdir: unparse-able response in return message' + JSON.stringify(makeDirReturns), e)
                     makeDirReturns = { error: 'bad response', message: 'fds mkdir: unparse-able response from dir make' }
                   }
@@ -1034,7 +1033,7 @@ fdsFairOs.prototype.folderExists = function (path, try2, callback) {
             })
           } else if (returns && returns.error && typeof returns.error === 'string' && returns.error === 'pod not open') {
             felog('caught error in folderExists ', returns)
-            callback(new Error((returns && returns.error)? returns.error: 'folderExists - uknown err for ' + path))
+            callback(new Error((returns && returns.error) ? returns.error : 'folderExists - uknown err for ' + path))
           } else if (!returns) { // snbh
             felog('error 12 - mssing returns in folderExists')
             callback(new Error('fds- unknown error in folderExists'))
@@ -1173,7 +1172,7 @@ fdsFairOs.prototype.getAuth = function (options = {}, callback) {
           if (!returns || returns.code !== 200 || returns.error) {
             fdsThis.cookie = {}
             felog('error in returns ', { returns, theCookie })
-            callback(new Error('fds login: ' + (returns.message? returns.message : ' ukmown err')))
+            callback(new Error('fds login: ' + (returns.message ? returns.message : ' ukmown err')))
           } else {
             reOpenPod(fdsThis, callback)
           }
@@ -1267,7 +1266,7 @@ const reOpenPod = function (fdsThis, callback) {
   })
   podReq.on('error', (error) => {
     felog('error in pod opening ', error)
-    callback('fds- pod open' + (error.message ? error.message : 'uknown err'))
+    callback(new Error('fds- pod open' + (error.message ? error.message : 'uknown err')))
   })
   podReq.write(JSON.stringify(podParams))
   podReq.end()

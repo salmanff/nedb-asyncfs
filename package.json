@@ -1,6 +1,6 @@
 {
   "name": "nedb-asyncfs",
-  "version": "2.0.02.04",
+  "version": "2.0.03.01",
   "author": {
     "name": "Louis Chatriot then modified by salmanff",
     "additions": "async version by @salmanff"
