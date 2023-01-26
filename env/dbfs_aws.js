@@ -50,7 +50,7 @@ AWS_FS.prototype.initFS = function (callback) {
   self = this
 
   const s3 = new self.aws.S3(/*{apiVersion: '2006-03-01'}*/).createBucket({Bucket: self.bucket}, function(err, awsCreateBucketResponse) {
-    if (!err || err.code === 'BucketAlreadyOwnedByYou') {
+  if (!err || err.code === 'BucketAlreadyOwnedByYou' || (err.code === 'OperationAborted' && err.message.includes('A conflicting conditional operation is currently in progress against this resource'))) {
       callback(null)
     } else {
       console.warn("err in INITFS ",err, err.stack);
@@ -59,11 +59,18 @@ AWS_FS.prototype.initFS = function (callback) {
   })
 }
 AWS_FS.prototype.writeFile = function(path, contents, options, callback) {
-  // onsole.log(' - aws writefile',path, this.bucket, "contents:",contents)
-  // console.log(Need to handle overwrite option - options not implemented  (ie AAWS overwrites)
-  // console.log("options not implemented - doNotOverWrite")
-  if (options && options.doNotOverWrite) {
-    callback(new Error('doNotOverWrite option is not set in aws'))
+  if (options && options.doNotOverWrite) { // Note (ie AAWS overwrites by default)
+    const self = this
+    self.isPresent(path, function (err, present) {
+      if (err) {
+        callback(err)
+      } else if (present) {
+        callback(new Error('File exists - doNotOverWrite option was set and could not overwrite.'))
+      } else {
+        options.doNotOverWrite = false
+        self.writeFile(path, contents, options, callback)
+      }
+    })
   } else {
     const objectParams = { Bucket: this.bucket, Key: path, Body: contents }
     const s3 = new this.aws.S3()
@@ -162,7 +169,7 @@ AWS_FS.prototype.stat = function (file, callback) {
     }
   });
 }
-AWS_FS.prototype.isPresent = function(file, options, callback){
+AWS_FS.prototype.isPresent = function(file, callback){
   // onsole.log(' - aws-exists ',file, ' in ',this.bucket)
 
   const objectParams = { Bucket: this.bucket, Key: file };
@@ -183,29 +190,87 @@ AWS_FS.prototype.mkdirp = function(path, callback) {
   // onsole.log(' - aws-mkdirp ',path," - not needed")
   return callback(null, null)
 }
-AWS_FS.prototype.readdir = function(dirpath, dummy, callback) {
-  // Note current implementation doesnt return more files than the limit
-  // onsole.log('aws reading dir ',dirpath )
-
+AWS_FS.prototype.size = function(dirorfFilePath, callback) {
+  const self = this
   const bucket = this.bucket
   const s3 = new this.aws.S3()
-  let chainEnded = false
 
-  s3.listObjectsV2({ Bucket:bucket, Delimiter: '/', Prefix: dirpath+'/' }).promise()
-  .then(response => {
-    const entries = response.Contents.map(entry => { return entry.Key.substr(dirpath.length + 1)})
-    chainEnded = true
-    return callback(null, entries)
-  })
-  .catch(err => {
-    if (isPathNotFound(err)) {
-      if (!chainEnded) return callback(null, [])
+  const getFolderSize = function(dirpath, options = { size: 0, ContinuationToken: null }, callback) {
+    let chainEnded = false
+    let size = options.size
+    let ContinuationToken = options.ContinuationToken
+
+    // if works do same for reeadfile
+  
+    s3.listObjectsV2({ Bucket: bucket, Prefix: dirpath+'/', ContinuationToken }).promise()
+    .then(response => {
+      response.Contents.forEach(fileObj => {
+        size += fileObj.Size
+      }) 
+      ContinuationToken = response.NextContinuationToken
+      if (ContinuationToken) {
+        return getFolderSize(dirpath, options = { size, ContinuationToken }, callback)
+      } else {
+        chainEnded = true
+        return callback(null, size)  
+      }
+    })
+    .catch(err => {
+      if (isPathNotFound(err)) {
+        if (!chainEnded) return callback(null, [])
+      } else {
+        console.warn('readdir',{chainEnded, err})
+        if (!chainEnded) return callback(err)
+      }
+    })
+
+  }
+
+  self.stat(dirorfFilePath, function (err, metadata) {
+    if (metadata && metadata.Size) {
+      callback(null, metadata.Size)
     } else {
-      console.warn('readdir',{chainEnded, err})
-      if (!chainEnded) return callback(err)
+      getFolderSize(dirorfFilePath, { size: 0, ContinuationToken: null }, callback)
     }
   })
 }
+AWS_FS.prototype.readdir = function(dirPath, dummy, callback) {
+  const self = this
+  const bucket = this.bucket
+  const s3 = new this.aws.S3()
+
+  const readAll = function(dirpath, options = { entries: [], ContinuationToken: null }, callback) {
+    let chainEnded = false
+    let entries = options.entries
+    let ContinuationToken = options.ContinuationToken
+
+    // if works do same for reeadfile
+  
+    s3.listObjectsV2({ Bucket: bucket, Prefix: dirpath+'/', ContinuationToken }).promise()
+    .then(response => {
+      response.Contents.forEach(fileObj => {
+        entries.push(fileObj.Key.substring(dirpath.length + 1))
+      }) 
+      ContinuationToken = response.NextContinuationToken
+      if (ContinuationToken) {
+        return readAll(dirpath, options = { entries, ContinuationToken }, callback)
+      } else {
+        chainEnded = true
+        return callback(null, entries)  
+      }
+    })
+    .catch(err => {
+      if (isPathNotFound(err)) {
+        if (!chainEnded) return callback(null, [])
+      } else {
+        console.warn('readdir',{chainEnded, err})
+        if (!chainEnded) return callback(err)
+      }
+    })
+  }
+  readAll(dirPath, { entries: [], ContinuationToken: null }, callback)
+}
+
 AWS_FS.prototype.readFile = function(path, options, callback) {
 
   let contents = null

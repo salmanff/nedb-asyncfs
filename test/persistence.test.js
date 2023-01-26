@@ -31,14 +31,14 @@ try {
 }
 console.log(" Using file system enviornment: "+env.name)
 
-const BEFORE_DELAY = (env.name == 'dropbox' || env.name == 'googleDrive'  || env.name == 'fdsFairOs')? 1000 :
+const BEFORE_DELAY = (env.name == 'dropbox' || env.name == 'googleDrive')? 1000 :
   ((env.name == 'aws')? 500: 20);
   // dbx mostly works with 500, except for 1 case when writing 100 files
-const BEFORE_DELAY0 = (env.name == 'dropbox' || env.name == 'googleDrive'  || env.name == 'fdsFairOs')? 1000 : 0;
+const BEFORE_DELAY0 = (env.name == 'dropbox' || env.name == 'googleDrive')? 1000 : 0;
 
 /* @sf_added utility fumction to make async */
 const deleteIfExists = function (d, file, cb){
-  d.customFS.isPresent(file, null, function (err, exists) {
+  d.customFS.isPresent(file, function (err, exists) {
     if (err) throw err
     if (exists) {
       d.customFS.deleteNedbTableFiles(file, cb);
@@ -75,7 +75,6 @@ describe('Persistence', function () {
     done()
   });
   });
-
 
   it('Every line represents a document', function () {
     var now = new Date()
@@ -662,6 +661,7 @@ describe('Persistence', function () {
 
   describe('Prevent dataloss when persisting data', function () {
 
+
     it('Creating a datastore with in memory as true and a bad filename wont cause an error', function () {
       new Datastore({ filename: 'workspace/bad.db~', inMemoryOnly: true, customFS: env.dbFS });
     })
@@ -678,22 +678,22 @@ describe('Persistence', function () {
           // if (fs.isPresentSync('workspace/it.db')) { fs.unlinkSync('workspace/it.db'); }
           // if (fs.isPresentSync('workspace/it.db~')) { fs.unlinkSync('workspace/it.db~'); }
 
-            d.customFS.isPresent('workspace/it.db', null, function (err, exists){
+            d.customFS.isPresent('workspace/it.db', function (err, exists){
               //fs.isPresentSync('workspace/it.db').should.equal(false);
               exists.should.equal(false);
 
-              d.customFS.isPresent('workspace/it.db~', null, function (err, exists){
+              d.customFS.isPresent('workspace/it.db~', function (err, exists){
                 //fs.isPresentSync('workspace/it.db~').should.equal(false);
                 exists.should.equal(false);
 
                 storage.ensureDatafileIntegrity(p.filename, d.customFS, function (err) {
                   assert.isNull(err);
 
-                  d.customFS.isPresent('workspace/it.db', null, function (err, exists){
+                  d.customFS.isPresent('workspace/it.db', function (err, exists){
                     //fs.isPresentSync('workspace/it.db').should.equal(true);
                     exists.should.equal(true);
 
-                    d.customFS.isPresent('workspace/it.db~', null, function (err, exists){
+                    d.customFS.isPresent('workspace/it.db~', function (err, exists){
                       //fs.isPresentSync('workspace/it.db~').should.equal(false);
                       exists.should.equal(false);
 
@@ -724,22 +724,22 @@ describe('Persistence', function () {
             d.customFS.writeNedbTableFile('workspace/it.db', 'something', 'utf8', function (err) {
               //fs.writeFileSync('workspace/it.db', 'something', 'utf8');
 
-                d.customFS.isPresent('workspace/it.db', null, function (err, exists){
+                d.customFS.isPresent('workspace/it.db', function (err, exists){
                   //fs.isPresentSync('workspace/it.db').should.equal(true);
                   exists.should.equal(true);
 
-                  d.customFS.isPresent('workspace/it.db~', null, function (err, exists){
+                  d.customFS.isPresent('workspace/it.db~', function (err, exists){
                     //fs.isPresentSync('workspace/it.db~').should.equal(false);
                     exists.should.equal(false);
 
                     storage.ensureDatafileIntegrity(p.filename, d.customFS, function (err) {
                       assert.isNull(err);
 
-                      d.customFS.isPresent('workspace/it.db', null,function (err, exists){
+                      d.customFS.isPresent('workspace/it.db', function (err, exists){
                         //fs.isPresentSync('workspace/it.db').should.equal(true);
                         exists.should.equal(true);
 
-                        d.customFS.isPresent('workspace/it.db~', null,function (err, exists){
+                        d.customFS.isPresent('workspace/it.db~', function (err, exists){
                           //fs.isPresentSync('workspace/it.db~').should.equal(false);
                           exists.should.equal(false);
 
@@ -771,22 +771,22 @@ describe('Persistence', function () {
           d.customFS.writeNedbTableFile('workspace/it.db~', 'something', 'utf8', function (err) {
             //fs.writeFileSync('workspace/it.db~', 'something', 'utf8');
 
-            d.customFS.isPresent('workspace/it.db', null, function (err, exists){
+            d.customFS.isPresent('workspace/it.db', function (err, exists){
               //fs.isPresentSync('workspace/it.db').should.equal(false);
               exists.should.equal(false);
 
-              d.customFS.isPresent('workspace/it.db~', null, function (err, exists){
+              d.customFS.isPresent('workspace/it.db~', function (err, exists){
                 //fs.isPresentSync('workspace/it.db~').should.equal(true);
                 exists.should.equal(true);
 
                 storage.ensureDatafileIntegrity(p.filename, d.customFS,  function (err) {
                   assert.isNull(err);
 
-                  d.customFS.isPresent('workspace/it.db', null, function (err, exists){
+                  d.customFS.isPresent('workspace/it.db', function (err, exists){
                     //fs.isPresentSync('workspace/it.db').should.equal(true);
                     exists.should.equal(true);
 
-                    d.customFS.isPresent('workspace/it.db~', null, function (err, exists){
+                    d.customFS.isPresent('workspace/it.db~', function (err, exists){
                       //fs.isPresentSync('workspace/it.db~').should.equal(false);
                       exists.should.equal(false);
 
@@ -821,22 +821,22 @@ describe('Persistence', function () {
             d.customFS.writeFile('workspace/it.db~', '{"_id":"0","hello":"other"}', null, function(err) {
               //fs.writeFileSync('workspace/it.db~', '{"_id":"0","hello":"other"}', 'utf8');
 
-              d.customFS.isPresent('workspace/it.db', null, function (err, exists){
+              d.customFS.isPresent('workspace/it.db', function (err, exists){
                 //fs.isPresentSync('workspace/it.db').should.equal(true);
                 exists.should.equal(true);
 
-                d.customFS.isPresent('workspace/it.db~', null, function (err, exists){
+                d.customFS.isPresent('workspace/it.db~', function (err, exists){
                   //fs.isPresentSync('workspace/it.db~').should.equal(true);
                   exists.should.equal(true);
 
                   storage.ensureDatafileIntegrity(theDb.persistence.filename, d.customFS, function (err) {
                     assert.isNull(err);
 
-                    d.customFS.isPresent('workspace/it.db', null, function (err, exists){
+                    d.customFS.isPresent('workspace/it.db', function (err, exists){
                       //fs.isPresentSync('workspace/it.db').should.equal(true);
                       exists.should.equal(true);
 
-                      d.customFS.isPresent('workspace/it.db~', null, function (err, exists){
+                      d.customFS.isPresent('workspace/it.db~', function (err, exists){
                         //fs.isPresentSync('workspace/it.db~').should.equal(true);
                         exists.should.equal(true);
 
@@ -852,11 +852,11 @@ describe('Persistence', function () {
                               assert.isNull(err);
                               docs.length.should.equal(1);
                               docs[0].hello.should.equal("world");
-                              d.customFS.isPresent('workspace/it.db', null, function (err, exists){
+                              d.customFS.isPresent('workspace/it.db', function (err, exists){
                                 //fs.isPresentSync ('workspace/it.db').should.equal(true);
                                 exists.should.equal(true);
 
-                                  d.customFS.isPresent('workspace/it.db~', null, function (err, exists){
+                                  d.customFS.isPresent('workspace/it.db~', function (err, exists){
                                     //fs.isPresentSync('workspace/it.db~').should.equal(false);
                                     exists.should.equal(false);
                                     done();
@@ -887,14 +887,14 @@ describe('Persistence', function () {
             deleteIfExists(d, testDb + '~', function(err) {
               //if (fs..isPresentSync(testDb + '~')) { fs.unlinkSync(testDb + '~'); }
 
-              d.customFS.isPresent(testDb, null, function (err, exists){
+              d.customFS.isPresent(testDb, function (err, exists){
                 //fs..isPresentSync(testDb).should.equal(false);
                 exists.should.equal(false);
 
                 d.customFS.writeFile(testDb + '~', 'something', null, function(err) {
                   //fs.writeFileSync(testDb + '~', 'something', 'utf8');
 
-                  d.customFS.isPresent(testDb + '~', null, function (err, exists){
+                  d.customFS.isPresent(testDb + '~', function (err, exists){
                     //fs..isPresentSync(testDb + '~').should.equal(true);
                     exists.should.equal(true);
 
@@ -903,11 +903,11 @@ describe('Persistence', function () {
                           //var contents = fs.readFileSync(testDb, 'utf8');
                           assert.isNull(err);
 
-                          d.customFS.isPresent(testDb, null, function (err, exists){
+                          d.customFS.isPresent(testDb, function (err, exists){
                             //fs..isPresentSync(testDb).should.equal(true);
                             exists.should.equal(true);
 
-                            d.customFS.isPresent(testDb  + '~', null, function (err, exists){
+                            d.customFS.isPresent(testDb  + '~', function (err, exists){
                               //fs..isPresentSync(testDb + '~').should.equal(false);
                               exists.should.equal(false);
                               if (!contents.match(/^{"hello":"world","_id":"[0-9a-zA-Z]{16}"}\n$/)) {
@@ -938,18 +938,18 @@ describe('Persistence', function () {
             deleteIfExists(d, testDb + '~', function(err) {
               //if (fs..isPresentSync(testDb + '~')) { fs.unlinkSync(testDb + '~'); }
 
-              d.customFS.isPresent(testDb, null, function (err, exists){
+              d.customFS.isPresent(testDb, function (err, exists){
                 //fs..isPresentSync(testDb).should.equal(false);
                 exists.should.equal(false);
 
-                d.customFS.isPresent(testDb + '~', null, function (err, exists){
+                d.customFS.isPresent(testDb + '~', function (err, exists){
                   //fs..isPresentSync(testDb + '~').should.equal(false);
                   exists.should.equal(false);
 
                   d.customFS.writeFile(testDb + '~', 'bloup', null, function(err) {
                     //fs.writeFileSync(testDb + '~', 'bloup', 'utf8');
 
-                    d.customFS.isPresent(testDb + '~', null, function (err, exists){
+                    d.customFS.isPresent(testDb + '~', function (err, exists){
                       //fs..isPresentSync(testDb + '~').should.equal(true);
                       exists.should.equal(true);
 
@@ -957,10 +957,10 @@ describe('Persistence', function () {
                         d.customFS.readNedbTableFile(testDb, 'utf8', function(hook_err, contents) {
                           //var contents = fs.readFileSync(testDb, 'utf8');
                           assert.isNull(err);
-                          d.customFS.isPresent(testDb, null, function (err, exists){
+                          d.customFS.isPresent(testDb, function (err, exists){
                             //fs..isPresentSync(testDb).should.equal(true);
                             exists.should.equal(true);
-                            d.customFS.isPresent(testDb + '~', null, function (err, exists){
+                            d.customFS.isPresent(testDb + '~', function (err, exists){
                               //fs..isPresentSync(testDb + '~').should.equal(false);
                               exists.should.equal(false);
                               if (!contents.match(/^{"hello":"world","_id":"[0-9a-zA-Z]{16}"}\n$/)) {
@@ -990,11 +990,11 @@ describe('Persistence', function () {
             //if (fs..isPresentSync(testDb)) { fs.unlinkSync(testDb); }
             d.customFS.writeFile(testDb + '~', 'blabla', null, function(err) {
               //fs.writeFileSync(testDb + '~', 'blabla', 'utf8');
-              d.customFS.isPresent(testDb, null, function (err, exists){
+              d.customFS.isPresent(testDb, function (err, exists){
                 //fs..isPresentSync(testDb).should.equal(false);
                 exists.should.equal(false);
 
-                d.customFS.isPresent(testDb + '~', null, function (err, exists){
+                d.customFS.isPresent(testDb + '~', function (err, exists){
                   //fs..isPresentSync(testDb + '~').should.equal(true);
                   exists.should.equal(true);
 
@@ -1003,11 +1003,11 @@ describe('Persistence', function () {
                       //var contents = fs.readFileSync(testDb, 'utf8');
                       assert.isNull(err);
 
-                      d.customFS.isPresent(testDb, null, function (err, exists){
+                      d.customFS.isPresent(testDb, function (err, exists){
                         //fs..isPresentSync(testDb).should.equal(true);
                         exists.should.equal(true);
 
-                        d.customFS.isPresent(testDb + '~', null, function (err, exists){
+                        d.customFS.isPresent(testDb + '~', function (err, exists){
                           //fs..isPresentSync(testDb + '~').should.equal(false);
                           exists.should.equal(false);
                           if (!contents.match(/^{"hello":"world","_id":"[0-9a-zA-Z]{16}"}\n$/)) {
@@ -1041,11 +1041,11 @@ describe('Persistence', function () {
             d.customFS.readNedbTableFile(dbFile, 'utf8', function(hook_err, contents) {
               //var contents = fs.readFileSync(dbFile, 'utf8');
               assert.isNull(err);
-              d.customFS.isPresent(dbFile, null, function (err, exists){
+              d.customFS.isPresent(dbFile, function (err, exists){
                 //fs..isPresentSync(dbFile).should.equal(true);
                 exists.should.equal(true);
 
-                d.customFS.isPresent(dbFile + '~', null, function (err, exists){
+                d.customFS.isPresent(dbFile + '~', function (err, exists){
                   //fs..isPresentSync(dbFile + '~').should.equal(false);
                   exists.should.equal(false);
                   if (contents != "") {
@@ -1110,10 +1110,10 @@ describe('Persistence', function () {
         });
       }
       , function (cb) {
-        d.customFS.isPresent(dbFile, null, function (err, exists){
+        d.customFS.isPresent(dbFile, function (err, exists){
           //fs..isPresentSync(dbFile).should.equal(true);
           exists.should.equal(true);
-          d.customFS.isPresent(dbFile + '~', null, function (err, exists){
+          d.customFS.isPresent(dbFile + '~', function (err, exists){
             //fs..isPresentSync(dbFile + '~').should.equal(false);
             exists.should.equal(false);
 
@@ -1136,10 +1136,10 @@ describe('Persistence', function () {
       }
       , function (cb) {
 
-        d.customFS.isPresent(dbFile, null, function (err, exists){
+        d.customFS.isPresent(dbFile, function (err, exists){
           //fs..isPresentSync(dbFile).should.equal(true);
           exists.should.equal(true);
-          d.customFS.isPresent(dbFile + '~', null, function (err, exists){
+          d.customFS.isPresent(dbFile + '~', function (err, exists){
             //fs..isPresentSync(dbFile + '~').should.equal(false);
             exists.should.equal(false);
 
@@ -1230,7 +1230,7 @@ describe('Persistence', function () {
     it('Doesnt do anything if file already doesnt exist', function (done) {
       storage.ensureFileDoesntExist('workspace/nonexisting',  d.customFS, function (err) {
         assert.isNull(err);
-        d.customFS.isPresent('workspace/nonexisting', null, function (err, exists) {
+        d.customFS.isPresent('workspace/nonexisting', function (err, exists) {
           //fs..isPresentSync('workspace/nonexisting').should.equal(false);
           exists.should.equal(false);
           done();
@@ -1241,7 +1241,7 @@ describe('Persistence', function () {
     it('Deletes file if it exists', function (done) {
       d.customFS.writeFile('workspace/existing', 'hello world', null, function(err) {
         //fs.writeFileSync('workspace/existing', 'hello world', 'utf8');
-        d.customFS.isPresent('workspace/existing', null, function (err, exists) {
+        d.customFS.isPresent('workspace/existing', function (err, exists) {
           //fs..isPresentSync('workspace/existing').should.equal(true);
           exists.should.equal(true);
 
@@ -1249,7 +1249,7 @@ describe('Persistence', function () {
           //    Persistence object is not defined by the tests
           storage.ensureFileDoesntExist('workspace/existing',  d.customFS, function (err) {
             assert.isNull(err);
-            d.customFS.isPresent('workspace/existing', null, function (err, exists) {
+            d.customFS.isPresent('workspace/existing', function (err, exists) {
               //fs..isPresentSync('workspace/existing').should.equal(false);
               exists.should.equal(false);
               done();

@@ -219,7 +219,7 @@ googleDriveFS.prototype.unlink = function (path, callback) {
     }
   })
 }
-googleDriveFS.prototype.isPresent = function (file, options, callback) {
+googleDriveFS.prototype.isPresent = function (file, callback) {
   fdlog(' - goog-isPresent ', { file })
   if (file.substring(0, 1) === '/') {
     file = file.substring(1)

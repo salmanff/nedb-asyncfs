@@ -1,6 +1,6 @@
 {
   "name": "nedb-asyncfs",
-  "version": "2.0.03.01",
+  "version": "2.0.4",
   "author": {
     "name": "Louis Chatriot then modified by salmanff",
     "additions": "async version by @salmanff"
@@ -32,7 +32,7 @@
     "dropbox": "10.23.x"
   },
   "scripts": {
-    "test": "./node_modules/.bin/mocha --reporter spec --timeout 240000"
+    "test": "./node_modules/.bin/mocha --reporter spec --timeout 120000"
   },
   "main": "index",
   "browser": {

@@ -30,10 +30,10 @@ try {
   // onsole.log("no custom environment - Useing local fs")
 }
 console.log(" Using file system enviornment: "+env.name)
-const BEFORE_DELAY = (env.name == 'dropbox' || env.name == 'googleDrive' || env.name == 'fdsFairOs')? 1000 :
+const BEFORE_DELAY = (env.name == 'dropbox' || env.name == 'googleDrive')? 1000 :
   ((env.name == 'aws')? 500: 0);
   // dbx mostly works with 500, except for 1 case when writing 100 files
-const BEFORE_DELAY0 = (env.name == 'dropbox' || env.name == 'googleDrive'  || env.name == 'fdsFairOs') ? 500 : 0;
+const BEFORE_DELAY0 = (env.name == 'dropbox' || env.name == 'googleDrive') ? 500 : 0;
 
 describe('Cursor', function () {
   var d;
@@ -53,19 +53,16 @@ describe('Cursor', function () {
           }
         }
       , function (cb) {
-          console.log('cursot test before 1 ..')
           Persistence.ensureDirectoryExists(path.dirname(testDb), d.customFS, function () {
-            d.customFS.isPresent(testDb, null, function (err, exists) {
-              console.log('cursot test before 1a ..', { err, exists })
+            d.customFS.isPresent(testDb, function (err, exists) {
               if (err) {
                 cb(err)
               } else if (exists) {
                 // @sf_added delete table function here instea of unlink which only erases th emain file
                 // removed d.customFS.unlink(testDb, cb);
                 d.customFS.deleteNedbTableFiles(testDb, function(err) {
-                  console.log('cursot test before 2 ..', { err })
                   if (err) throw err
-                  setTimeout(function() {return cb();},BEFORE_DELAY*2)
+                  setTimeout(function() {return cb();},BEFORE_DELAY)
                   // @sf_added timeout - as 1 out of 26 tests failed in aws cause of too many writes slowing down process
                 });
               } else {
@@ -76,7 +73,6 @@ describe('Cursor', function () {
         }
       , function (cb) {
           d.loadDatabase(function (err) {
-            console.log('cursot test before 3 ..', { err })
             assert.isNull(err);
             d.getAllData().length.should.equal(0);
             return cb();

@@ -25,7 +25,7 @@ try {
   env = {dbFS:null, name:'defaultLocalFS'}
   // onsole.log("no custom environment - Useing local fs")
 }
-console.log(" Testing FS - Using file system enviornment: " + env.name)
+console.log(" Using file system enviornment: "+env.name)
 const BEFORE_DELAY = (env.name == 'dropbox' || env.name == 'googleDrive' || env.name == 'fdsFairOs') ? 1000 :
   ((env.name == 'aws')? 500: 0);
   // dbx mostly works with 500, except for 1 case when writing 100 files
@@ -50,8 +50,8 @@ describe('FS', function () {
       ], done);
   });
 
-  it('initialises', function (done) {
-    dbfs.isPresent(testFs, null, function (err, exists) {
+  it('initialises', function  (done) {
+    dbfs.isPresent(testFs, function (err, exists) {
       if (err) throw err
       if (exists) {
         dbfs.unlink(testFs, function(err) {
@@ -79,12 +79,12 @@ describe('FS', function () {
   it('can write and assert presence', function (done) {
     dbfs.writeFile(testFs, WRITE_TEXT, {}, function (err) {
       assert.isNull(err)
-      dbfs.isPresent(testFs, null, function (err, exists) {
+      dbfs.isPresent(testFs, function (err, exists) {
         if (err) throw err
         assert(exists === true)
-        dbfs.isPresent(testFs, null, function (err, present) {
+        dbfs.isPresent(testFs, function (err, present) {
           assert(!err && present === true)
-          dbfs.isPresent('/workplace/doesntexist.txt', null, function (err, present) {
+          dbfs.isPresent('/workplace/doesntexist.txt', function (err, present) {
             assert(!err && present === false)
             done()
           })
@@ -110,15 +110,14 @@ describe('FS', function () {
         dbfs.rename(testFs, renamedPath , cb)
       },
       function(cb) {
-        dbfs.isPresent(renamedPath, null, function (err, exists) {
-          console.log('dbfs twst rename - present ? ', exists)
+        dbfs.isPresent(renamedPath, function (err, exists) {
           if (err) throw err
           assert(exists === true)
           cb()
         })
       },
       function(cb) {
-        dbfs.isPresent(testFs, null, function (err, exists) {
+        dbfs.isPresent(testFs, function (err, exists) {
           if (err) throw err
           assert(exists === false)
           cb()

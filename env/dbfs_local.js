@@ -39,7 +39,7 @@ localFS.name = 'local'
 localFS.exists = function(filename, callback) {
   callback (fs.existsSync(filename)? true : false)
 }
-localFS.isPresent = function (filename, options, callback) {
+localFS.isPresent = function (filename, callback) {
   fs.stat(filename, function (err, stat) {
     if (err == null) {
       callback(null, true)
@@ -65,7 +65,40 @@ localFS.stat = function (path, callback) {
     }
   })
 }
+localFS.size = function (fileOrDirPath, callback) { 
+  const folderSize = function (dirPath, callback) {
+    fs.readdir(dirPath, function (err, files) {
+      let fullsize = 0
+      async.forEach(files, function (file, cb) {
+        fileOrDirPath = dirPath + path.sep + file
+        localFS.size(fileOrDirPath, function (err, size) {
+          if (err) {
+            cb(err);
+           } else {
+             fullsize += size
+             cb(null)
+           }
+        })
+      }, function (err) {
+        callback(err, fullsize)
+      })
+    })
+  }
+  
+  fs.stat(fileOrDirPath, function (err, stat) {
+    if (err) {
+     cb(err);
+    } else if (stat.isDirectory()) {
+      folderSize(fileOrDirPath, callback);
+    } else {
+      // onsole.log('got file size for ', filePath, stat.size)
+      callback(null, stat.size)
+    }
+})
+}
+
 localFS.writeFile = function (path, contents, options, callback) {
+  // onsole.log('write file ', { options })
   if (options && options.doNotOverWrite && fs.existsSync(path)) {
     callback(new Error('File exists - doNotOverWrite option was set and could not overwrite.'))
   } else {
@@ -74,15 +107,6 @@ localFS.writeFile = function (path, contents, options, callback) {
     dirs = dirs.join('/')
     mkdirp.sync(dirs)
     fs.writeFile(path, contents, options, callback)
-    /*
-    mkdirp(dirs)
-      .then(made => {
-        console.log(`made directories, starting with ${made}`)
-      })
-      .catch(err =>
-        callback(err)
-      )
-    */
   }
 }
 localFS.readFile = function(path, options, callback) {
@@ -146,8 +170,8 @@ const flushToStorage = function (options, callback) {
     fs.fsync(fd, function (errFS) {
       fs.close(fd, function (errC) {
         if (errFS || errC) {
-          if (errFS) console.warn({errFS})
-          if (errC) console.warn({errC})
+          if (errFS) console.warn({ errFS })
+          if (errC) console.warn({ errC })
           var e = new Error('Failed to flush to storage');
           e.errorOnFsync = errFS;
           e.errorOnClose = errC;

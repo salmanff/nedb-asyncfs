@@ -194,7 +194,7 @@ DropboxFS.prototype.exists = function (file, callback) {
       }
     })
 }
-DropboxFS.prototype.isPresent = function (file, options, callback) {
+DropboxFS.prototype.isPresent = function (file, callback) {
   fdlog('dbfs_dropbox - isPresent ', file)
   const path = '/' + file
   const self = this
@@ -239,6 +239,54 @@ DropboxFS.prototype.stat = function (file, callback) {
         return callback(new Error('file does not exist'))
       } else {
         felog('dbfs_dropbox - stat - unknown error getting ' + file, error)
+        return callback(new Error('unknown err connecting to dropbox on "stat" ' + error.message))
+      } 
+    })
+}
+DropboxFS.prototype.size = function (fileOrDirPath, callback) { 
+  fdlog('dbfs_dropbox - size ', fileOrDirPath)
+  const path = '/' + fileOrDirPath
+  const self = this
+
+  const folderSize = function (dirPath, callback) {
+    self.readdir(dirPath, null, function (err, files) {
+      let fullsize = 0
+      async.forEach(files, function (file, cb) {
+        fileOrDirPath = dirPath + '/' + file
+        self.size(fileOrDirPath, function (err, size) {
+          if (err) {
+            cb(err);
+           } else {
+             fullsize += size
+             cb(null)
+           }
+        })
+      }, function (err) {
+        return callback(err, fullsize)
+      })
+    })
+  }
+
+  self.getorRefreshAccessTokenFromDbx()
+    .then(response => {
+      return self.dbx.filesGetMetadata({ path })
+    })
+    .then(response => {
+      if (!response.result || !response.result['.tag']) return callback(new Error('no response from sizing'))
+      if (response.result['.tag'] === 'folder') {
+        return folderSize(path.substring(1), callback)
+      } else if (response.result['.tag'] === 'file') {
+        return callback(null, response.result.size)
+      } else {
+        return callback(new Error('unknown file type'))
+      }      
+    })
+    .catch(error => {
+      if (isPathNotFound(error)) {
+        // Does not exist
+        return callback(new Error('file does not exist'))
+      } else {
+        felog('dbfs_dropbox - stat - unknown error getting ' + fileOrDirPath, error)
         return callback(new Error('unknown err connecting to dropbox on "stat" ' + error.message))
       }
     })
