@@ -338,7 +338,7 @@ googleDriveFS.prototype.readFile = function (path, options, callback) {
 }
 
 // Other file system
-googleDriveFS.prototype.getFileToSend = function (path, callback) {
+googleDriveFS.prototype.getFileToSend = function (path, options, callback) {
   fdlog(' - goog-getFileToSend ', path)
   const self = this
   self.fileOrFolderExistsOnGoog(path, { fileOnly: true }, (err, exists, fileInfo) => {

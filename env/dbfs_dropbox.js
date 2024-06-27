@@ -28,7 +28,9 @@ for nedb-asyncfs, each type of file system should have a file with the following
 const { Dropbox } = require('dropbox')
 var async = require('async')
 const https = require('https')
-const fetch = require('node-fetch')
+// const fetch = require('node-fetch')
+// mod.cjs temporary solution from https://stackoverflow.com/questions/57169793/error-err-require-esm-how-to-use-es6-modules-in-node-12 and https://stackoverflow.com/questions/69041454/error-require-of-es-modules-is-not-supported-when-importing-node-fetch
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args))
 
 function DropboxFS (credentials = {}, options = {}) {
   fdlog('new dropbox credentials ', { credentials })
@@ -386,7 +388,7 @@ DropboxFS.prototype.readFile = function (path, options, callback) {
 }
 
 // Other file system
-DropboxFS.prototype.getFileToSend = function (path, callback) {
+DropboxFS.prototype.getFileToSend = function (path, options, callback) {
   path = '/' + path
   const self = this
   fdlog(' dbfs_dropbox getFileToSend partialPath ' + path)

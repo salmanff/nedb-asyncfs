@@ -40,6 +40,7 @@ localFS.exists = function(filename, callback) {
   callback (fs.existsSync(filename)? true : false)
 }
 localFS.isPresent = function (filename, callback) {
+  // onsole.log('is present ', filename)
   fs.stat(filename, function (err, stat) {
     if (err == null) {
       callback(null, true)
@@ -80,6 +81,7 @@ localFS.size = function (fileOrDirPath, callback) {
            }
         })
       }, function (err) {
+        if (err?.code === 'ENOENT') err = null
         callback(err, fullsize)
       })
     })
@@ -115,13 +117,23 @@ localFS.readFile = function(path, options, callback) {
     callback(err, content)
   })
 }
+localFS.getFileToSend = function(path, options, callback) {
+  fs.readFile(path, options, function (err, content) {
+    callback(err, content)
+  })
+}
 localFS.unlink = fs.unlink;
 localFS.readdir = function (path, options, callback) {
   options = options || {}
   if (options.withFileTypes) throw new Error('file types not implemnted yet')
   fs.readdir(path, options, function (err, files) {
+    // onsole.log('in readdir read ', { path, err })
     if (err) {
-      callback(err)
+      if (err.code?.indexOf('ENOENT') > -1) {
+        callback(null, [])
+      } else {
+        callback(err)
+      }
     } else {
       // var formattedList = [] // to be used for withFileTypes
       // files.forEach((file, i) => { formattedList.push(file) })
@@ -226,29 +238,30 @@ localFS.removeFolder = function(fullPath, callback) {
 var deleteLocalFolderAndContents = function(location, next) {
     // http://stackoverflow.com/questions/18052762/in-node-js-how-to-remove-the-directory-which-is-not-empty
     fs.readdir(location, function (err, files) {
-        async.forEach(files, function (file, cb) {
-            file = location + path.sep + file
-            fs.stat(file, function (err, stat) {
-                if (err) {
-                    return cb(err);
-                }
-                if (stat.isDirectory()) {
-                    deleteLocalFolderAndContents(file, cb);
-                } else {
-                    fs.unlink(file, function (err) {
-                        if (err) {
-                            return cb(err);
-                        }
-                        return cb();
-                    })
-                }
+      async.forEach(files, function (file, cb) {
+        file = location + path.sep + file
+        fs.stat(file, function (err, stat) {
+          if (err) {
+            return cb(err);
+          }
+          if (stat.isDirectory()) {
+            deleteLocalFolderAndContents(file, cb);
+          } else {
+            fs.unlink(file, function (err) {
+              cb(err)
             })
-        }, function (err) {
-            if (err) return next(err)
-            fs.rmdir(location, function (err) {
-                return next(err)
-            })
+          }
         })
+      }, function (err) {
+          if (err) return next(err)
+          fs.rmdir(location, function (err) {
+              if (err && err.code !== 'ENOENT') { 
+                return next(err);
+              } else {
+                return next(null)
+              }
+          })
+      })
     })
 }
 // Interface

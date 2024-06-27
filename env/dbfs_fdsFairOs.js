@@ -207,7 +207,7 @@ fdsFairOs.prototype.rename = function (fromPath, toPath, callback) {
       if (!results || !results.present) {
         cb(new Error('could not retrieve file'))
       } else {
-        self.getFileToSend(fromPath, cb)
+        self.getFileToSend(fromPath, null, cb)
       }
     },
     function (file, cb) {
@@ -225,7 +225,7 @@ fdsFairOs.prototype.rename = function (fromPath, toPath, callback) {
 }
 fdsFairOs.prototype.readFile = function (path, options, callback) {
   fdlog('fdsFairOs  - readFile ', path)
-  this.getFileToSend(path, function (err, returns) {
+  this.getFileToSend(path, null, function (err, returns) {
     fdlog('got readfile returns ', { err, returns })
     if (err) {
       callback(err)
@@ -339,7 +339,7 @@ fdsFairOs.prototype.stat = function (path, callback) {
 }
 
 // Other file system...
-fdsFairOs.prototype.getFileToSend = function (path, callback) {
+fdsFairOs.prototype.getFileToSend = function (path, options, callback) {
   const self = this
 
   this.checkAuth(function (err) {

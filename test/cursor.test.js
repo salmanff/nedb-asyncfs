@@ -73,6 +73,7 @@ describe('Cursor', function () {
         }
       , function (cb) {
           d.loadDatabase(function (err) {
+            if (err) console.warn('load daabase err ', err)
             assert.isNull(err);
             d.getAllData().length.should.equal(0);
             return cb();

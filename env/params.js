@@ -46,6 +46,16 @@ if (!dbFS) {
   }
 }
 
+if (!dbFS) {
+  Custom_FS = require('./dbfs_azure.js')
+  cred_contents = fs.existsSync("./env/.azure_credentials.js")? require("./.azure_credentials.js") : null
+  console.log(cred_contents)
+  if (Custom_FS && cred_contents?.storageAccountName) {
+    dbFS = new Custom_FS(cred_contents, { doNotPersistOnLoad: false });
+    if (dbFS) name = 'azure'
+  }
+}
+
 
 // if googleDrive is not configured, try fds
 if (!dbFS) {

@@ -98,15 +98,15 @@ describe('Database', function () {
       d.customFS.writeFile(autoDb, fileStr, null, function(err) {
         setTimeout(function () {
 
-        if (err) throw new Error('could not write file to test autoload')
-        db = new Datastore({ filename: autoDb, autoload: true, customFS: env.dbFS })
+          if (err) throw new Error('could not write file to test autoload')
+          db = new Datastore({ filename: autoDb, autoload: true, customFS: env.dbFS })
 
-        db.find({}, function (err, docs) {
-          assert.isNull(err);
-          docs.length.should.equal(2);
-          done();
-        });
-      },500)
+          db.find({}, function (err, docs) {
+            assert.isNull(err);
+            docs.length.should.equal(2);
+            done();
+          });
+        },500)
 
       })
     });
@@ -124,6 +124,7 @@ describe('Database', function () {
 
         // Check the loadDatabase generated an error
         function onload (err) {
+          console.log('writeNedbTableFile ', { err })
           err.errorType.should.equal('uniqueViolated');
           done();
         }

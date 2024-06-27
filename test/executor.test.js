@@ -146,7 +146,6 @@ describe('Executor', function () {
         function (cb) {
           /** @sf_added customFS to functions **/
           Persistence.ensureDirectoryExists(path.dirname(testDb), d.customFS, function () {
-            console.log('presistence here')
             d.customFS.isPresent(testDb, function (err, exists) {
               if (err) throw err
               if (exists) {
