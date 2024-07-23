@@ -57,7 +57,7 @@ AZURE_FS.prototype.name = 'azure'
 // primitives
 AZURE_FS.prototype.initFS = function (callback) {
   // console.log(' - azure INITFS ',this.name)
-  self = this
+  const self = this
 
   const blobServiceClient = new this.BlobServiceClient(
     `https://${this.params.storageAccountName}.blob.core.windows.net`,
@@ -109,6 +109,9 @@ AZURE_FS.prototype.initFS = function (callback) {
 }
 AZURE_FS.prototype.isPresent = function(file, callback){
   // onsole.log(' - azure-exists ',file, ' in ')
+  // const self = this
+  // if (!this.containerClient)  console.error('Container not initialized ispresent', { self })
+  // if (!self.containerClient) return callback(new Error('Container not initialized'))
   const listOptions = {
     includeCopy: false,                 // include metadata from previous copies
     includeDeleted: false,              // include deleted blobs 
@@ -139,12 +142,13 @@ AZURE_FS.prototype.exists = function(file, callback){
 }
 AZURE_FS.prototype.mkdirp = function(path, callback) {
   // onsole.log(' - azure-mkdirp ',path," - not needed")
+  if (!this.containerClient)  callback(new Error('Container not initialized'))
   return callback(null, null)
 }
 AZURE_FS.prototype.writeFile = function(path, contents, options, callback) {
   // onsole.log('azure writefile ', { path, contents , options })
+  const self = this
   if (options && options.doNotOverWrite) { // Note (ie Aazure overwrites by default)
-    const self = this
     self.isPresent(path, function (err, present) {
       if (err) {
         callback(err)
@@ -160,7 +164,6 @@ AZURE_FS.prototype.writeFile = function(path, contents, options, callback) {
     // onsole.log( `\nUploading to Azure storage as blob\n\tname: ${path}:\n\tURL: ${blockBlobClient.url}` );
     blockBlobClient.upload(contents, contents.length)
     .then(response => {
-      // onsole.log( `Blob was uploaded successfully. requestId: ${response.requestId}`, 'wrtie req ', { response })
       return callback(null)
     })
     .catch(err => {
@@ -172,6 +175,7 @@ AZURE_FS.prototype.writeFile = function(path, contents, options, callback) {
 
 AZURE_FS.prototype.unlink = function(path, callback) {
   // onsole.log(' - azure-unlink ',path)
+  const self = this
 
   // include: Delete the base blob and all of its snapshots.
   // only: Delete only the blob's snapshots and not the blob itself.
@@ -219,7 +223,7 @@ AZURE_FS.prototype.rename = function(from_path, to_path, callback) {
 }
 AZURE_FS.prototype.stat = function (file, callback) {
   // onsole.log(' - azure-exists ',file, ' in ',this.bucket)
-  
+  const self = this
   const blobClient = self.containerClient.getBlockBlobClient(file);
 
   blobClient.getProperties()
@@ -240,6 +244,8 @@ AZURE_FS.prototype.stat = function (file, callback) {
 
 AZURE_FS.prototype.readFile = function(path, options, callback) {
   // onsole.log('readfile in azure ', { path })
+  const self = this
+  
   async function streamToText(readable) {
     readable.setEncoding('utf8');
     let data = '';
@@ -313,6 +319,7 @@ AZURE_FS.prototype.readdir = function(dirPath, options = { maxPageSize: 500 }, c
   })
 }
 AZURE_FS.prototype.getFileToSend = function(path, options, callback) {
+  const self = this
   async function streamToBuffer(readableStream) {
     return new Promise((resolve, reject) => {
         const chunks = [];
@@ -365,7 +372,7 @@ AZURE_FS.prototype.removeFolder = function(dirpath, callback) {
 
 
 // ADDITIONAL FILE COMMANDS
-AZURE_FS.prototype.readall = async function (self, dirPath, options) {
+AZURE_FS.prototype.readall = async function (self, dirPath, options) {  
   const maxPageSize = options?.maxPageSize || 500
   const includeMeta = options?.includeMeta || false
   
