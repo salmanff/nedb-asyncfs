@@ -56,7 +56,7 @@ AZURE_FS.prototype.name = 'azure'
 
 // primitives
 AZURE_FS.prototype.initFS = function (callback) {
-  // onsole.log(' - azure INITFS ',this.name)
+  // console.log(' - azure INITFS ',this.name)
   self = this
 
   const blobServiceClient = new this.BlobServiceClient(
@@ -120,8 +120,8 @@ AZURE_FS.prototype.isPresent = function(file, callback){
     includeUncommitedBlobs: false,      // include uncommitted blobs
     includeVersions: false,             // include all blob version
     prefix: file                          // filter by blob name prefix
-}
-self.containerClient.listBlobsFlat(listOptions).next()
+  }
+  this.containerClient.listBlobsFlat(listOptions).next()
   .then((existing) => {
     // onsole.log('existing .. ',existing?.value?.name)
     return callback(null, existing?.value?.name === file)

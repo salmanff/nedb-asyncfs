@@ -338,7 +338,11 @@ DropboxFS.prototype.readdir = function (dirpath, dummy, callback) {
     })
     .catch(err => {
       felog('dbfs_dropbox - readdir err', { dirpath, err })
-      return callback(err)
+      if (isPathNotFound(err)) {
+        return callback(new Error('no such file or directory (dbx) - '))
+      } else {
+        return callback(err?.error || err)
+      }
     })
 }
 const readmoreFileList = function (dbx, cursor, oldlist, callback) {

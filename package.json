@@ -1,12 +1,13 @@
 {
   "name": "nedb-asyncfs",
-  "version": "2.0.6",
+  "version": "2.0.7",
   "author": {
     "name": "Louis Chatriot then modified by salmanff",
     "additions": "async version by @salmanff"
   },
   "contributors": [
-    "Louis Chatriot", "Salman Farmanfarmaian"
+    "Louis Chatriot",
+    "Salman Farmanfarmaian"
   ],
   "description": "async version of File-based embedded data store for node.js",
   "keywords": [
@@ -22,14 +23,16 @@
     "underscore": "~1.13.2"
   },
   "devDependencies": {
+    "@azure/identity": "^4.4.0",
+    "@azure/storage-blob": "^12.23.0",
+    "aws-sdk": "^2.1048.0",
     "chai": "^4.3.0",
+    "commander": "1.1.1",
+    "dropbox": "10.23.x",
+    "exec-time": "0.0.2",
     "mocha": "9.1.x",
     "request": "2.9.x",
-    "sinon": "1.3.x",
-    "exec-time": "0.0.2",
-    "commander": "1.1.1",
-    "aws-sdk": "^2.1048.0",
-    "dropbox": "10.23.x"
+    "sinon": "1.3.x"
   },
   "scripts": {
     "test": "./node_modules/.bin/mocha --reporter spec --timeout 120000"

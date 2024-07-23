@@ -3,4 +3,8 @@
 //  other params storageAccountName, msConnectioNString, secretAccessKey
 
 // exports.storageAccountName = 'XXX'
+// exports.msConnectioNString = 'XXX'
+// exports.secretAccessKey = 'XXX'
+
+
 //npm test
