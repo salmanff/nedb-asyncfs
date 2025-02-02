@@ -59,6 +59,7 @@ function AWS_FS (credentials = {}, options = {}) {
     secretAccessKey: credentials.secretAccessKey
   } })
   this.bucket = credentials.bucket || 'freezr'
+  this.bucketWasProvided = Boolean(credentials.bucket)
   this.doNotPersistOnLoad = (options.doNotPersistOnLoad === false)? false : true
 }
 
@@ -69,26 +70,30 @@ AWS_FS.prototype.initFS = function (callback) {
   // onsole.log(' - aws INITFS ',this.bucket)
   const self = this
 
-  const creaateBucket = async () => {
-    await this.s3Client.send(
-      new CreateBucketCommand({
-        Bucket: self.bucket,
-      })
-    );
-  }
-  
-  aSyncToPromise(creaateBucket)
-  .then(response => {
+  if (self.bucketWasProvided) {
     return callback(null)
-  })
-  .catch(err => {
-    if (err?.Code === 'BucketAlreadyOwnedByYou' || err?.Code === 'BucketAlreadyExists') {
-      callback(null)
-    } else {
-      console.warn('Error creaateBucket', err);
-      return callback(err)
+  } else {
+    const creaateBucket = async () => {
+      await this.s3Client.send(
+        new CreateBucketCommand({
+          Bucket: self.bucket,
+        })
+      );
     }
-  })
+    
+    aSyncToPromise(creaateBucket)
+    .then(response => {
+      return callback(null)
+    })
+    .catch(err => {
+      if (err?.Code === 'BucketAlreadyOwnedByYou' || err?.Code === 'BucketAlreadyExists') {
+        callback(null)
+      } else {
+        console.warn('Error creaateBucket', err);
+        return callback(err)
+      }
+    })
+  }
 }
 AWS_FS.prototype.isPresent = function(file, callback){
   // onsole.log(' - aws-exists ',file, ' in ',this.bucket)

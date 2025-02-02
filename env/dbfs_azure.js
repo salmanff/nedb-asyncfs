@@ -98,7 +98,7 @@ AZURE_FS.prototype.initFS = function (callback) {
       })
       .catch(err => {
         console.warn('Error creating container', err);
-        return callback(err)
+        throw err
       })
     }
   })
@@ -142,7 +142,7 @@ AZURE_FS.prototype.exists = function(file, callback){
 }
 AZURE_FS.prototype.mkdirp = function(path, callback) {
   // onsole.log(' - azure-mkdirp ',path," - not needed")
-  if (!this.containerClient)  callback(new Error('Container not initialized'))
+  if (!this.containerClient) return callback(new Error('Container not initialized'))
   return callback(null, null)
 }
 AZURE_FS.prototype.writeFile = function(path, contents, options, callback) {
