@@ -139,8 +139,13 @@ AZURE_FS.prototype.exists = function(file, callback){
 }
 AZURE_FS.prototype.mkdirp = function(path, callback) {
   // onsole.log(' - azure-mkdirp ',path," - not needed")
-  if (!this.containerClient) return callback(new Error('Container not initialized'))
-  return callback(null, null)
+  const self = this
+  if (!self.containerClient) {
+    // onsole.log('container Not initiatialised - re-intialising fs with ', self.params)
+    self.initFS(callback)
+  } else {
+    return callback(null, null)
+  }
 }
 AZURE_FS.prototype.writeFile = function(path, contents, options, callback) {
   // onsole.log('azure writefile ', { path, contents , options })
