@@ -40,7 +40,6 @@ const {
 } = require('./nedbtablefuncs.js')
 
 function AZURE_FS (credentials = {}, options = {}) {
-  // onsole.log("New azure fs")
   this.BlobServiceClient = require('@azure/storage-blob').BlobServiceClient
   this.defaultAzureDredentials = require('@azure/identity').DefaultAzureCredential
   this.params = {
@@ -59,15 +58,15 @@ AZURE_FS.prototype.initFS = function (callback) {
   // console.log(' - azure INITFS ',this.name)
   const self = this
 
-  const blobServiceClient = new this.BlobServiceClient(
-    `https://${this.params.storageAccountName}.blob.core.windows.net`,
+  const blobServiceClient = new self.BlobServiceClient(
+    `https://${self.params.storageAccountName}.blob.core.windows.net`,
     new self.defaultAzureDredentials()
     // new DefaultAzureCredential()
-  );
+  )
 
   // CREATE CONTAINER ====================================================================================
   // Create a unique name for the container
-  const containerName = this.params.containerName
+  const containerName = self.params.containerName
   const containerClient = blobServiceClient.getContainerClient(containerName);
 
   const listOptions = {
@@ -79,8 +78,6 @@ AZURE_FS.prototype.initFS = function (callback) {
   
   blobServiceClient.listContainers(listOptions).next()
   .then((existing) => {
-    // onsole.log('existing .. ',existing)
-    
     if (existing?.value?.name === containerName) {
       // onsole.log('Container already exists - gor containerClient')
       self.containerClient = containerClient
