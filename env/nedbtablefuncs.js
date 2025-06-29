@@ -168,14 +168,6 @@ exports.crashSafeWriteNedbFile = function(filename, data, callback) {
     })
 }
 
-exports.aSyncToPromise = async function (asyncFunc, arg1, arg2, arg3) {
-  const result = await asyncFunc(arg1, arg2, arg3)
-  return new Promise((resolve, reject) => {
-    resolve(result)
-  });
-}
-
-
 const getnamesForAppendFilesFrom = function(path) {
   const appendFileFolderName = function (filename) {
     if (!filename) throw new Error('no file name in appendFileFolderName')
@@ -193,12 +185,12 @@ const getnamesForAppendFilesFrom = function(path) {
   return [path, oldfilename]
 }
 const getAllAppendDirectoryFiles = function (self, appendDirectory, ignoreTime, callback) {
-  exports.aSyncToPromise(self.readall, self, appendDirectory + '/', { includeMeta: true })
+  self.readall(appendDirectory + '/', { includeMeta: true })
   .then(entries => {
     // onsole.log('file readall in getAllAppendDirectoryFiles: ', { appendDirectory, entries})
     if (!entries || entries.length === 0) return callback(null, [])
 
-    const timelyArray = entries.filter(e => { return (ignoreTime || !e.mtimeMs || (e.mtimeMs < writeTime)) })
+    const timelyArray = entries.filter(e => { return (ignoreTime || !e.mtimeMs) })
     return callback(null, timelyArray)
   })
   .catch(err => {

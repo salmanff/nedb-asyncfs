@@ -46,18 +46,24 @@ const {
   readNedbTableFile,
   deleteNedbTableFiles,
   writeNedbTableFile,
-  crashSafeWriteNedbFile,
-  aSyncToPromise
+  crashSafeWriteNedbFile
 } = require('./nedbtablefuncs.js')
 
 
 function AWS_FS (credentials = {}, options = {}) {
   // onsole.log("New aws fs")
-  this.s3Client = new S3Client({ region: (credentials.region || 'eu-central-1'), credentials: {
-    // region: credentials.region || 'eu-central-1',
-    accessKeyId: credentials.accessKeyId,
-    secretAccessKey: credentials.secretAccessKey
-  } })
+  
+  try {
+    this.s3Client = new S3Client({ region: (credentials.region || 'eu-central-1'), credentials: {
+      // region: credentials.region || 'eu-central-1',
+      accessKeyId: credentials.accessKeyId,
+      secretAccessKey: credentials.secretAccessKey
+    } })
+  } catch (error) {
+    console.error('Error creating S3Client:', error)
+    this.s3Client = null
+  }
+  
   this.bucket = credentials.bucket || 'freezr'
   this.bucketWasProvided = Boolean(credentials.bucket)
   this.doNotPersistOnLoad = (options.doNotPersistOnLoad === false)? false : true
@@ -68,20 +74,24 @@ AWS_FS.prototype.name = 'aws'
 // primitives
 AWS_FS.prototype.initFS = function (callback) {
   // onsole.log(' - aws INITFS ',this.bucket)
-  const self = this
+  const initFSself = this
 
-  if (self.bucketWasProvided) {
+  if (initFSself.bucketWasProvided) {
     return callback(null)
   } else {
+    if (!initFSself.s3Client) {
+      return callback(new Error('s3Client is undefined'))
+    }
+    
     const creaateBucket = async () => {
-      await this.s3Client.send(
+      await initFSself.s3Client.send(
         new CreateBucketCommand({
-          Bucket: self.bucket,
+          Bucket: initFSself.bucket,
         })
       );
     }
     
-    aSyncToPromise(creaateBucket)
+    creaateBucket()
     .then(response => {
       return callback(null)
     })
@@ -108,7 +118,7 @@ AWS_FS.prototype.isPresent = function(file, callback){
     )
     return response
   }
-  aSyncToPromise(getMeta, file)
+  getMeta(file)
   .then(response => {
     return callback(null, true)
   })
@@ -148,7 +158,7 @@ AWS_FS.prototype.writeFile = function(path, contents, options, callback) {
       }
     })
   } else {
-    aSyncToPromise(writeFile, path, contents)
+    writeFile(path, contents)
     .then(response => {
       return callback(null)
     })
@@ -171,15 +181,14 @@ AWS_FS.prototype.rename = function(fromPath, toPath, callback) {
     )
   }
 
-  aSyncToPromise(copyFile, fromPath, toPath)
+  copyFile(fromPath, toPath)
     .then(response => {
       return self.unlink(fromPath, callback)
     })
     .catch(err => {
       console.warn('Error copyFile', err);
-      return callback(err)
+      return callback(err) 
     })
-
 }
 AWS_FS.prototype.unlink = function(path, callback) {
   // onsole.log(' - aws-unlink ',path)
@@ -194,7 +203,7 @@ AWS_FS.prototype.unlink = function(path, callback) {
     )
   }
 
-  aSyncToPromise(deleteFile, path)
+  deleteFile(path)
   .then(response => {
     return callback(null)
   })
@@ -202,7 +211,6 @@ AWS_FS.prototype.unlink = function(path, callback) {
     console.warn('Error deleteFile', err);
     return callback(err)
   })
-
 }
 AWS_FS.prototype.exists = function (file, callback) {
   // onsole.log(' - aws-exists ',file, ' in ',this.bucket)
@@ -223,7 +231,7 @@ AWS_FS.prototype.stat = function (file, callback) {
     )
     return response
   }
-  aSyncToPromise(getMeta, file)
+  getMeta(file)
   .then(metadata => {
     if (metadata && metadata.LastModified) metadata.mtimeMs = new Date(metadata.LastModified).getTime()
     if (metadata && metadata.ContentLength) metadata.size = metadata.ContentLength
@@ -234,9 +242,6 @@ AWS_FS.prototype.stat = function (file, callback) {
     console.warn('Error stat', err);
     return callback(err)
   })
-
-
-
 }
 AWS_FS.prototype.mkdirp = function(path, callback) {
   // onsole.log(' - aws-mkdirp ',path," - not needed")
@@ -247,7 +252,7 @@ AWS_FS.prototype.size = function(dirorfFilePath, callback) {
   // onsole.log('readdir in azure ', {dirPath, options })
   const options = {includeMeta: true}
 
-  aSyncToPromise(self.readall, self, dirorfFilePath, options)
+  self.readall(dirorfFilePath, options)
   .then(entries => {
     const size = entries.reduce((acc, entry) => acc + entry.Size, 0) 
     return callback(null, size)
@@ -258,7 +263,8 @@ AWS_FS.prototype.size = function(dirorfFilePath, callback) {
   })
 }
 
-AWS_FS.prototype.readall = async function (self, dirPath, options) {
+AWS_FS.prototype.readall = function (dirPath, options) {
+  const self = this
   const maxPageSize = options?.maxPageSize || 500
   const includeMeta = options?.includeMeta || false
   
@@ -279,31 +285,33 @@ AWS_FS.prototype.readall = async function (self, dirPath, options) {
     return metadata
   }
 
-  let isTruncated = true;
-  try { // try first to cach no files error
-    const firstResp = await self.s3Client.send(command)
-    const { Contents, IsTruncated, NextContinuationToken } = firstResp
-    if (Contents?.length > 0) Contents.forEach((c) => entries.push(includeMeta ? standardiseMetaData(c) : c.Key.substring(dirPath.length + 1)));
-    isTruncated = IsTruncated;
-    command.input.ContinuationToken = NextContinuationToken
-  } catch (err) {
-    isTruncated = false
-    console.warn('Error in readall:', err);
-    if (err.message.indexOf('no such file or directory') >= 0) {
-      // do nothing
-    } else {
-      throw err
+  return new Promise(async (resolve, reject) => {
+    let isTruncated = true;
+    try { // try first to cach no files error
+      const firstResp = await self.s3Client.send(command)
+      const { Contents, IsTruncated, NextContinuationToken } = firstResp
+      if (Contents?.length > 0) Contents.forEach((c) => entries.push(includeMeta ? standardiseMetaData(c) : c.Key.substring(dirPath.length + 1)));
+      isTruncated = IsTruncated;
+      command.input.ContinuationToken = NextContinuationToken
+    } catch (err) {
+      isTruncated = false
+      console.warn('Error in readall:', err);
+      if (err.message.indexOf('no such file or directory') >= 0) {
+        // do nothing
+      } else {
+        return reject(err)
+      }
     }
-  }
 
-  while (isTruncated) {
-    const resp = await self.s3Client.send(command)
-    const { Contents, IsTruncated, NextContinuationToken } = resp
-    if (Contents?.length > 0) Contents.forEach((c) => entries.push(includeMeta ? standardiseMetaData(c) : c.Key.substring(dirPath.length + 1)));
-    isTruncated = IsTruncated;
-    command.input.ContinuationToken = NextContinuationToken;
-  }
-  return entries
+    while (isTruncated) {
+      const resp = await self.s3Client.send(command)
+      const { Contents, IsTruncated, NextContinuationToken } = resp
+      if (Contents?.length > 0) Contents.forEach((c) => entries.push(includeMeta ? standardiseMetaData(c) : c.Key.substring(dirPath.length + 1)));
+      isTruncated = IsTruncated;
+      command.input.ContinuationToken = NextContinuationToken;
+    }
+    resolve(entries)
+  })
 }
 AWS_FS.prototype.readdir = function(dirPath,  options = { maxPageSize: 500 }, callback) {
   const self = this
@@ -311,7 +319,7 @@ AWS_FS.prototype.readdir = function(dirPath,  options = { maxPageSize: 500 }, ca
   options = options || {}
   options.includeMeta = false
 
-  aSyncToPromise(self.readall, self, dirPath, options)
+  self.readall(dirPath, options)
   .then(entries => {
     return callback(null, entries)
   })
@@ -333,7 +341,7 @@ AWS_FS.prototype.readFile = function(path, options, callback) {
     return await Body.transformToString('utf8')
   }
 
-  aSyncToPromise(readFile, path)
+  readFile(path)
   .then(response => {
     return callback(null, response)
   })
@@ -351,13 +359,12 @@ AWS_FS.prototype.getFileToSend = function(path, options, callback) {
         Key: path
       })
     );
-    // return await Body / await Body.transformToWebStream() ?  Body.transformToString()
-    return await Body.transformToByteArray()
-    // return 
-    // return 
+    // Convert Uint8Array to Buffer for consistency with other file systems
+    const uint8Array = await Body.transformToByteArray()
+    return Buffer.from(uint8Array)
   }
 
-  aSyncToPromise(getFile, path)
+  getFile(path)
   .then(response => {
     return callback(null, response)
   })
@@ -368,7 +375,7 @@ AWS_FS.prototype.getFileToSend = function(path, options, callback) {
 }
 AWS_FS.prototype.removeFolder = function(dirPath, callback) {
   const self = this
-  // onsole.log('removeFolder in azure ', {dirPath, options })
+  console.log('removeFolder in aws ', {dirPath, readall: self.readall })
   options =  { includeMeta: true }
 
   const deleteObjects = async function (keyArray) {
@@ -382,10 +389,10 @@ AWS_FS.prototype.removeFolder = function(dirPath, callback) {
     return Deleted
   }
 
-  aSyncToPromise(self.readall, self, dirPath, options)
+  self.readall(dirPath, options)
   .then(entries => {
     const keyArray = entries.map(e => { return { Key: e.Key } })
-    return aSyncToPromise(deleteObjects, keyArray)
+    return deleteObjects(keyArray)
   })
   .then(results => {
     return callback(null)
@@ -416,7 +423,7 @@ AWS_FS.prototype.deleteObjectList = function (nativeObjectList, callback) {
     if (!keyArray || keyArray.length === 0) {
       return callback(null)
     } else {
-      return aSyncToPromise(deleteObjects, keyArray)
+      return deleteObjects(keyArray)
       .then(results => {
         return callback(null)
       })

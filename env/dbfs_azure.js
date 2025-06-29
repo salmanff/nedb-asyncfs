@@ -35,8 +35,7 @@ const {
   readNedbTableFile,
   deleteNedbTableFiles,
   writeNedbTableFile,
-  crashSafeWriteNedbFile,
-  aSyncToPromise
+  crashSafeWriteNedbFile
 } = require('./nedbtablefuncs.js')
 
 function AZURE_FS (credentials = {}, options = {}) {
@@ -211,7 +210,7 @@ AZURE_FS.prototype.rename = function(from_path, to_path, callback) {
 
   newBlobClient.beginCopyFromURL(oldBlobClient.url)
   .then(copyPoller => {
-    return aSyncToPromise(asyncPolUntilDone, copyPoller)
+    return asyncPolUntilDone(copyPoller)
   })
   .then(response => {
     // onsole.log( `Blob was copied successfully. requestId: ${response.requestId}` )
@@ -262,7 +261,7 @@ AZURE_FS.prototype.readFile = function(path, options, callback) {
 
   blockBlobClient.download(0)
     .then(downloadBlockBlobResponse => {
-      return aSyncToPromise(streamToText, downloadBlockBlobResponse.readableStreamBody)
+      return streamToText(downloadBlockBlobResponse.readableStreamBody)
       // return streamToTextPromise(downloadBlockBlobResponse.readableStreamBody)
     })
     .then(data => {
@@ -311,7 +310,7 @@ AZURE_FS.prototype.readdir = function(dirPath, options = { maxPageSize: 500 }, c
   options = options || {}
   options.includeMeta = false
 
-  aSyncToPromise(self.readall, self, dirPath, options)
+  self.readall(dirPath, options)
   .then(entries => {
     return callback(null, entries)
   })
@@ -339,7 +338,7 @@ AZURE_FS.prototype.getFileToSend = function(path, options, callback) {
 
   blockBlobClient.download()
     .then(downloadResponse => {
-      return aSyncToPromise(streamToBuffer, downloadResponse.readableStreamBody)
+      return streamToBuffer(downloadResponse.readableStreamBody)
       // return streamToTextPromise(downloadBlockBlobResponse.readableStreamBody)
     })
     .then(data => {
@@ -374,7 +373,8 @@ AZURE_FS.prototype.removeFolder = function(dirpath, callback) {
 
 
 // ADDITIONAL FILE COMMANDS
-AZURE_FS.prototype.readall = async function (self, dirPath, options) {  
+AZURE_FS.prototype.readall = function (dirPath, options) {  
+  const self = this
   const maxPageSize = options?.maxPageSize || 500
   const includeMeta = options?.includeMeta || false
   
@@ -388,40 +388,43 @@ AZURE_FS.prototype.readall = async function (self, dirPath, options) {
     if (newMeta && newMeta.ContentLength) newMeta.size = newMeta.ContentLength
     return newMeta
   }
-  const listOptions = {
-    includeMetadata: includeMeta,
-    includeSnapshots: false,
-    includeTags: false,
-    includeVersions: false,
-    prefix: dirPath
-  }
-  const params = { maxPageSize }
 
-  let isTruncated = true;
-  try { // try first to cach no files error
-    const firstResp = await self.containerClient.listBlobsFlat(listOptions).byPage(params).next()
-    const newItems = firstResp.value?.segment?.blobItems
-    if (newItems?.length > 0) newItems.forEach((c) => entries.push(includeMeta ? standardiseMetaData(c) : c.name.substring(dirPath.length + 1)))
-    params.continuationToken = firstResp?.value?.continuationToken
-    isTruncated = Boolean(params.continuationToken)
-  } catch (err) {
-    isTruncated = false
-    if (err.message.indexOf('no such file or directory') >= 0) {
-      // do nothing
-    } else {
-      console.warn('Error in readall:', err);
-      throw err
+  return new Promise(async (resolve, reject) => {
+    const listOptions = {
+      includeMetadata: includeMeta,
+      includeSnapshots: false,
+      includeTags: false,
+      includeVersions: false,
+      prefix: dirPath
     }
-  }
+    const params = { maxPageSize }
 
-  while (isTruncated) {
-    const resp = await self.containerClient.listBlobsFlat(listOptions).byPage(params).next()
-    const newItems = resp.value?.segment?.blobItems
-    if (newItems?.length > 0) newItems.forEach((c) => entries.push(includeMeta ? standardiseMetaData(c) : c.name.substring(dirPath.length + 1)))
-    params.continuationToken = resp?.value?.continuationToken
-    isTruncated = Boolean(params.continuationToken)
-  }
-  return entries
+    let isTruncated = true;
+    try { // try first to cach no files error
+      const firstResp = await self.containerClient.listBlobsFlat(listOptions).byPage(params).next()
+      const newItems = firstResp.value?.segment?.blobItems
+      if (newItems?.length > 0) newItems.forEach((c) => entries.push(includeMeta ? standardiseMetaData(c) : c.name.substring(dirPath.length + 1)))
+      params.continuationToken = firstResp?.value?.continuationToken
+      isTruncated = Boolean(params.continuationToken)
+    } catch (err) {
+      isTruncated = false
+      if (err.message.indexOf('no such file or directory') >= 0) {
+        // do nothing
+      } else {
+        console.warn('Error in readall:', err);
+        return reject(err)
+      }
+    }
+
+    while (isTruncated) {
+      const resp = await self.containerClient.listBlobsFlat(listOptions).byPage(params).next()
+      const newItems = resp.value?.segment?.blobItems
+      if (newItems?.length > 0) newItems.forEach((c) => entries.push(includeMeta ? standardiseMetaData(c) : c.name.substring(dirPath.length + 1)))
+      params.continuationToken = resp?.value?.continuationToken
+      isTruncated = Boolean(params.continuationToken)
+    }
+    resolve(entries)
+  })
 }
 
 AZURE_FS.prototype.deleteObjectList = function (nativeObjectList, callback) {
