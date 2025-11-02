@@ -57,12 +57,18 @@ AZURE_FS.prototype.initFS = function (callback) {
   // console.log(' - azure INITFS ',this.name)
   const self = this
 
-  const blobServiceClient = new self.BlobServiceClient(
-    `https://${self.params.storageAccountName}.blob.core.windows.net`,
-    new self.defaultAzureDredentials()
-    // new DefaultAzureCredential()
-  )
-
+  // Use connection string if available, otherwise use DefaultAzureCredential
+  let blobServiceClient
+  if (self.params.msConnectioNString) {
+    // console.log('⚠️  Using connection string for Azure authentication - make sure this works in production - NOT needed in Azure environment!!')
+    blobServiceClient = self.BlobServiceClient.fromConnectionString(self.params.msConnectioNString)
+  } else {
+    // onsole.log('Using DefaultAzureCredential for Azure authentication within Azure environment')
+    blobServiceClient = new self.BlobServiceClient(
+      `https://${self.params.storageAccountName}.blob.core.windows.net`,
+      new self.defaultAzureDredentials()
+    )
+  }
   // CREATE CONTAINER ====================================================================================
   // Create a unique name for the container
   const containerName = self.params.containerName
